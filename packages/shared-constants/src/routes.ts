@@ -1,0 +1,37 @@
+export const ROUTES = {
+  AUTH: {
+    LOGIN: '/login',
+    REGISTER: '/register',
+    FORGOT_PASSWORD: '/forgot-password',
+    RESET_PASSWORD: '/reset-password',
+    OAUTH_CALLBACK: '/oauth/callback',
+  },
+  ADMIN: {
+    DASHBOARD: '/admin/dashboard',
+    PROJECTS: '/admin/projects',
+    ACCOUNTS: '/admin/accounts',
+    TASKERS: '/admin/taskers',
+    TIMESHEETS: '/admin/timesheets',
+    REPORTS: '/admin/reports',
+    NOTIFICATIONS: '/admin/notifications',
+    AUDIT_LOGS: '/admin/audit-logs',
+    PROFILE: '/admin/profile',
+    SETTINGS: '/admin/settings',
+  },
+  CLIENT: {
+    DASHBOARD: '/client/dashboard',
+    PROJECTS: '/client/projects',
+    REPORTS: '/client/reports',
+    PROFILE: '/client/profile',
+    BILLING: '/client/billing',
+  },
+  TASKER: {
+    DASHBOARD: '/tasker/dashboard',
+    ASSIGNED_TASKS: '/tasker/assigned-tasks',
+    TIMESHEETS: '/tasker/timesheets',
+    WORK_HISTORY: '/tasker/work-history',
+    PERFORMANCE: '/tasker/performance',
+    PROFILE: '/tasker/profile',
+    NOTIFICATIONS: '/tasker/notifications',
+  },
+} as const;

@@ -1,0 +1,131 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 222.2 84% 4.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 222.2 84% 4.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222.2 84% 4.9%;
+    --primary: 221.2 83.2% 53.3%;
+    --primary-foreground: 210 40% 98%;
+    --secondary: 210 40% 96.1%;
+    --secondary-foreground: 222.2 47.4% 11.2%;
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+    --accent: 210 40% 96.1%;
+    --accent-foreground: 222.2 47.4% 11.2%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 221.2 83.2% 53.3%;
+    --radius: 0.5rem;
+  }
+
+  .dark {
+    --background: 222.2 84% 4.9%;
+    --foreground: 210 40% 98%;
+    --card: 222.2 84% 4.9%;
+    --card-foreground: 210 40% 98%;
+    --popover: 222.2 84% 4.9%;
+    --popover-foreground: 210 40% 98%;
+    --primary: 217.2 91.2% 59.8%;
+    --primary-foreground: 222.2 47.4% 11.2%;
+    --secondary: 217.2 32.6% 17.5%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+    --accent: 217.2 32.6% 17.5%;
+    --accent-foreground: 210 40% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 217.2 32.6% 17.5%;
+    --input: 217.2 32.6% 17.5%;
+    --ring: 224.3 76.3% 48%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+/* ─── Component Visibility Enhancements ───
+   Adds subtle depth and definition to dashboard components
+   without altering any layout, colors, or design tokens. */
+
+@layer components {
+  /* ── Sidebar ── */
+  aside.w-60 {
+    box-shadow: 2px 0 8px 0 rgba(0, 0, 0, 0.06);
+    border-right-color: rgb(228 228 231) !important;   /* zinc-200 */
+  }
+
+  /* ── Top Bar ── */
+  header.border-b {
+    box-shadow: 0 2px 6px 0 rgba(0, 0, 0, 0.05);
+    border-bottom-color: rgb(228 228 231) !important;  /* zinc-200 */
+  }
+
+  /* ── Main content cards (white panels with rounded-xl) ── */
+  .bg-white.rounded-xl {
+    box-shadow:
+      0 1px 3px 0 rgba(0, 0, 0, 0.06),
+      0 2px 8px 0 rgba(0, 0, 0, 0.04);
+  }
+
+  /* ── Chart wrapper (rounded-2xl variant) ── */
+  .bg-white.rounded-2xl {
+    box-shadow:
+      0 1px 3px 0 rgba(0, 0, 0, 0.06),
+      0 2px 8px 0 rgba(0, 0, 0, 0.04);
+  }
+
+  /* ── Stat / detail cards (neutral-50 inset cards) ── */
+  .bg-neutral-50.rounded-xl {
+    box-shadow:
+      0 1px 2px 0 rgba(0, 0, 0, 0.05),
+      0 1px 4px 0 rgba(0, 0, 0, 0.03);
+    outline-color: rgb(228 228 231) !important;        /* zinc-200 – bolder border */
+  }
+
+  /* ── Filter pill groups ── */
+  .bg-neutral-50.rounded-lg {
+    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05);
+    outline-color: rgb(228 228 231) !important;
+  }
+
+  /* ── Mobile drawer ── */
+  .shadow-xl.flex.flex-col {
+    box-shadow:
+      4px 0 16px 0 rgba(0, 0, 0, 0.12),
+      8px 0 24px 0 rgba(0, 0, 0, 0.06) !important;
+  }
+
+  /* ── Profile dropdown ── */
+  .shadow-lg.border.border-zinc-100 {
+    box-shadow:
+      0 4px 12px 0 rgba(0, 0, 0, 0.10),
+      0 1px 4px 0 rgba(0, 0, 0, 0.06) !important;
+    border-color: rgb(228 228 231) !important;
+  }
+
+  /* ── Strengthen outline-zinc-100 globally to zinc-200 ── */
+  [class*="outline-zinc-100"] {
+    --tw-outline-color: rgb(228 228 231);              /* zinc-200 */
+  }
+
+  /* ── Search bars (neutral-50, rounded-2xl) ── */
+  .bg-neutral-50.rounded-2xl {
+    box-shadow: inset 0 1px 3px 0 rgba(0, 0, 0, 0.04);
+    outline: 1px solid rgb(228 228 231);
+  }
+}

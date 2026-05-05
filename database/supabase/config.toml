@@ -1,0 +1,6 @@
+# Supabase Configuration
+# TODO: Configure local Supabase settings
+project_id = "annotator-platform"
+[api]
+port = 54321
+schemas = ["public", "auth"]

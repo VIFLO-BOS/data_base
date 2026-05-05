@@ -1,0 +1,31 @@
+export type Permission = string;
+
+export const PERMISSIONS = {
+  // Users
+  USERS_READ: 'users:read',
+  USERS_CREATE: 'users:create',
+  USERS_UPDATE: 'users:update',
+  USERS_DELETE: 'users:delete',
+  // Projects
+  PROJECTS_READ: 'projects:read',
+  PROJECTS_CREATE: 'projects:create',
+  PROJECTS_UPDATE: 'projects:update',
+  PROJECTS_DELETE: 'projects:delete',
+  // Taskers
+  TASKERS_READ: 'taskers:read',
+  TASKERS_CREATE: 'taskers:create',
+  TASKERS_UPDATE: 'taskers:update',
+  TASKERS_DELETE: 'taskers:delete',
+  // Timesheets
+  TIMESHEETS_READ: 'timesheets:read',
+  TIMESHEETS_CREATE: 'timesheets:create',
+  TIMESHEETS_UPDATE: 'timesheets:update',
+  TIMESHEETS_APPROVE: 'timesheets:approve',
+  // Reports
+  REPORTS_READ: 'reports:read',
+  REPORTS_EXPORT: 'reports:export',
+  // Audit Logs
+  AUDIT_LOGS_READ: 'audit_logs:read',
+} as const;
+
+export type PermissionKey = keyof typeof PERMISSIONS;

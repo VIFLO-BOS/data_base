@@ -1,0 +1,43 @@
+{
+  "name": "annotator-platform",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Staff & Tasker Management Platform ",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:frontend": "cd apps/frontend && npm run dev",
+    "dev:backend": "cd apps/backend && npm run start:dev",
+    "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "build:frontend": "cd apps/frontend && npm run build",
+    "build:backend": "cd apps/backend && npm run build",
+    "build": "npm run build:shared && npm run build:backend && npm run build:frontend",
+    "build:shared": "cd packages/shared-types && npm run build && cd ../shared-constants && npm run build && cd ../shared-validation && npm run build && cd ../shared-rbac && npm run build && cd ../shared-utils && npm run build",
+    "lint": "eslint . --ext .ts,.tsx,.js,.jsx",
+    "lint:fix": "eslint . --ext .ts,.tsx,.js,.jsx --fix",
+    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\"",
+    "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,md}\"",
+    "test:frontend": "cd apps/frontend && npm run test",
+    "test:backend": "cd apps/backend && npm run test",
+    "test": "npm run test:shared && npm run test:backend && npm run test:frontend",
+    "test:shared": "cd packages/shared-types && npm run test && cd ../shared-validation && npm run test && cd ../shared-utils && npm run test",
+    "db:migrate": "cd apps/backend && npm run migration:run",
+    "db:seed": "cd apps/backend && npm run seed",
+    "docker:up": "docker-compose up -d",
+    "docker:down": "docker-compose down",
+    "typecheck": "tsc --noEmit -p apps/frontend/tsconfig.json && tsc --noEmit -p apps/backend/tsconfig.json"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2",
+    "eslint": "^8.57.0",
+    "prettier": "^3.2.5",
+    "typescript": "^5.4.5",
+    "@types/node": "^20.12.12"
+  },
+  "engines": {
+    "node": ">=20.0.0",
+    "npm": ">=10.0.0"
+  }
+}
