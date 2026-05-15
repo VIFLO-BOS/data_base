@@ -2,10 +2,20 @@
  * ExportFilterDto
  * TODO: Define validation rules and fields.
  */
-import { IsString, IsOptional, IsUUID } from 'class-validator';
+import { IsOptional, IsString, IsIn } from 'class-validator';
+import { ApiPropertyOptional } from '@nestjs/swagger';
 
 export class ExportFilterDto {
-  @IsString()
+  @ApiPropertyOptional({
+    enum: ['queued', 'processing', 'completed', 'failed'],
+  })
   @IsOptional()
-  placeholder?: string;
+  @IsString()
+  @IsIn(['queued', 'processing', 'completed', 'failed'])
+  status?: string;
+
+  @ApiPropertyOptional({ enum: ['csv', 'json'] })
+  @IsOptional()
+  @IsString()
+  type?: string;
 }

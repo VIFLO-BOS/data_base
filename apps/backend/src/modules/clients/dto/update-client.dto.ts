@@ -2,10 +2,7 @@
  * UpdateClientDto
  * TODO: Define validation rules and fields.
  */
-import { IsString, IsOptional, IsUUID } from 'class-validator';
+import { PartialType } from '@nestjs/swagger';
+import { CreateClientDto } from './create-client.dto';
 
-export class UpdateClientDto {
-  @IsString()
-  @IsOptional()
-  placeholder?: string;
-}
+export class UpdateClientDto extends PartialType(CreateClientDto) {}

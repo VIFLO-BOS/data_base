@@ -1,5 +1,6 @@
 /**
  * Application Configuration
+ *
  */
 import { registerAs } from '@nestjs/config';
 

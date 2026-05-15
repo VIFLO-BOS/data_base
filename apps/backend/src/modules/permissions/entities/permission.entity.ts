@@ -2,7 +2,13 @@
  * PermissionEntity
  * TODO: Define columns, relations, and constraints.
  */
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn } from 'typeorm';
+
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  CreateDateColumn,
+} from 'typeorm';
 
 @Entity('permissions')
 export class PermissionEntity {
@@ -10,11 +16,14 @@ export class PermissionEntity {
   id: string;
 
   @Column()
-  placeholder: string;
+  resource: string;
 
-  @CreateDateColumn()
+  @Column()
+  action: string;
+
+  @Column({ nullable: true })
+  description: string;
+
+  @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
-
-  @UpdateDateColumn()
-  updatedAt: Date;
 }

@@ -2,7 +2,20 @@
  * ProjectEntity
  * TODO: Define columns, relations, and constraints.
  */
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn } from 'typeorm';
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  CreateDateColumn,
+  UpdateDateColumn,
+  ManyToOne,
+  ManyToMany,
+  JoinColumn,
+  JoinTable,
+} from 'typeorm';
+import { UserEntity } from '../../users/entities/user.entity';
+import { ClientEntity } from '../../clients/entities/client.entity';
+import { TaskerEntity } from '../../taskers/entities/tasker.entity';
 
 @Entity('projects')
 export class ProjectEntity {
@@ -10,11 +23,48 @@ export class ProjectEntity {
   id: string;
 
   @Column()
-  placeholder: string;
+  name: string;
 
-  @CreateDateColumn()
+  @Column({ nullable: true })
+  description: string;
+
+  @Column({ default: 'draft' })
+  status: string; // draft, active, paused, completed, archived
+
+  @Column({ name: 'client_id', nullable: true })
+  clientId: string;
+
+  @Column({ name: 'start_date', type: 'date', nullable: true })
+  startDate: Date;
+
+  @Column({ name: 'end_date', type: 'date', nullable: true })
+  endDate: Date;
+
+  @Column({ type: 'decimal', precision: 12, scale: 2, nullable: true })
+  budget: number;
+
+  @Column({ name: 'created_by', nullable: true })
+  createdBy: string;
+
+  @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 
-  @UpdateDateColumn()
+  @UpdateDateColumn({ name: 'updated_at' })
   updatedAt: Date;
+
+  @ManyToOne(() => ClientEntity, { nullable: true })
+  @JoinColumn({ name: 'client_id' })
+  client: ClientEntity;
+
+  @ManyToOne(() => UserEntity, { nullable: true })
+  @JoinColumn({ name: 'created_by' })
+  creator: UserEntity;
+
+  @ManyToMany(() => TaskerEntity)
+  @JoinTable({
+    name: 'project_taskers',
+    joinColumn: { name: 'project_id', referencedColumnName: 'id' },
+    inverseJoinColumn: { name: 'tasker_id', referencedColumnName: 'id' },
+  })
+  taskers: TaskerEntity[];
 }

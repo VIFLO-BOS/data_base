@@ -2,10 +2,18 @@
  * NotificationFilterDto
  * TODO: Define validation rules and fields.
  */
-import { IsString, IsOptional, IsUUID } from 'class-validator';
+
+import { IsOptional, IsIn, IsBooleanString } from 'class-validator';
+import { ApiPropertyOptional } from '@nestjs/swagger';
 
 export class NotificationFilterDto {
-  @IsString()
+  @ApiPropertyOptional({ enum: ['true', 'false'] })
   @IsOptional()
-  placeholder?: string;
+  @IsBooleanString()
+  isRead?: string;
+
+  @ApiPropertyOptional({ enum: ['info', 'warning', 'success', 'error'] })
+  @IsOptional()
+  @IsIn(['info', 'warning', 'success', 'error'])
+  type?: string;
 }

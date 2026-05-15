@@ -4,12 +4,12 @@
  */
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn } from 'typeorm';
 
-@Entity('analyticsmetrics')
+@Entity('analytics_metrics')
 export class AnalyticsMetricEntity {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column()
+  @Column({ nullable: true })
   placeholder: string;
 
   @CreateDateColumn()

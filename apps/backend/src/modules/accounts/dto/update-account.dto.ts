@@ -2,10 +2,7 @@
  * UpdateAccountDto
  * TODO: Define validation rules and fields.
  */
-import { IsString, IsOptional, IsUUID } from 'class-validator';
+import { PartialType } from '@nestjs/swagger';
+import { CreateAccountDto } from './create-account.dto';
 
-export class UpdateAccountDto {
-  @IsString()
-  @IsOptional()
-  placeholder?: string;
-}
+export class UpdateAccountDto extends PartialType(CreateAccountDto) {}

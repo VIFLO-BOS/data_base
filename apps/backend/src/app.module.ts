@@ -3,8 +3,14 @@
  * Imports all feature modules and configures global providers.
  */
 import { Module } from '@nestjs/common';
-import { ConfigModule } from '@nestjs/config';
+import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
+
+// Config files
+import databaseConfig from './config/database.config';
+import supabaseConfig from './config/supabase.config';
+import jwtConfig from './config/jwt.config';
+import appConfig from './config/app.config';
 
 // Feature modules
 import { AuthModule } from './modules/auth/auth.module';
@@ -36,15 +42,28 @@ import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 
 @Module({
   imports: [
-    ConfigModule.forRoot({ isGlobal: true }),
+    // Load .env and config files globally
+    ConfigModule.forRoot({
+      isGlobal: true,
+      load: [appConfig, databaseConfig, jwtConfig, supabaseConfig],
+    }),
+
+    //Connect to Supabase PostgreSQL via TypeORM
     TypeOrmModule.forRootAsync({
-      useFactory: () => ({
+      inject: [ConfigService],
+      useFactory: (config: ConfigService) => ({
         type: 'postgres',
-        url: process.env.DATABASE_URL,
+        url: config.get<string>('database.url'),
         autoLoadEntities: true,
-        synchronize: process.env.NODE_ENV !== 'production',
+        synchronize: config.get<string>('app.env') !== 'production',
+        ssl:
+          config.get<string>('app.env') === 'production'
+            ? { rejectUnauthorized: false }
+            : false,
       }),
     }),
+
+    // Feature modules
     AuthModule,
     UsersModule,
     ProfilesModule,
@@ -65,10 +84,15 @@ import { HttpExceptionFilter } from './common/filters/http-exception.filter';
     HealthModule,
   ],
   providers: [
+    // Global guards: JWT -> Roles -> Permissions (applied to every route)
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     { provide: APP_GUARD, useClass: RolesGuard },
     { provide: APP_GUARD, useClass: PermissionsGuard },
+
+    // Global interceptor: wraps all responses in the {success,data} format
     { provide: APP_INTERCEPTOR, useClass: TransformInterceptor },
+
+    // Global filter: catches all exceptions and returns consistent error format
     { provide: APP_FILTER, useClass: HttpExceptionFilter },
   ],
 })

@@ -2,10 +2,13 @@
  * MarkReadDto
  * TODO: Define validation rules and fields.
  */
-import { IsString, IsOptional, IsUUID } from 'class-validator';
+
+import { IsArray, IsUUID } from 'class-validator';
+import { ApiProperty } from '@nestjs/swagger';
 
 export class MarkReadDto {
-  @IsString()
-  @IsOptional()
-  placeholder?: string;
+  @ApiProperty({ description: 'Array of notification IDs to mark as read' })
+  @IsArray()
+  @IsUUID('4', { each: true })
+  ids: string[];
 }

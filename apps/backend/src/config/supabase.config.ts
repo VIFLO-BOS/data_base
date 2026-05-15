@@ -1,5 +1,6 @@
 /**
  * Supabase Configuration
+ * Provides Supabase credentials to any module that needs them.
  */
 import { registerAs } from '@nestjs/config';
 

@@ -1,15 +1,24 @@
 /**
  * DashboardAnalytics Module
  */
-import { TypeOrmModule } from '@nestjs/typeorm';
 import { Module } from '@nestjs/common';
+import { TypeOrmModule } from '@nestjs/typeorm';
 import { DashboardAnalyticsController } from './dashboard-analytics.controller';
 import { DashboardAnalyticsService } from './dashboard-analytics.service';
-import { AnalyticsMetricEntity } from './entities/analytics-metric.entity';
-
+import { ProjectEntity } from '../projects/entities/project.entity';
+import { TaskerEntity } from '../taskers/entities/tasker.entity';
+import { TimesheetEntity } from '../timesheets/entities/timesheet.entity';
+import { AccountEntity } from '../accounts/entities/account.entity';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([AnalyticsMetricEntity])],
+  imports: [
+    TypeOrmModule.forFeature([
+      ProjectEntity,
+      TaskerEntity,
+      TimesheetEntity,
+      AccountEntity,
+    ]),
+  ],
   controllers: [DashboardAnalyticsController],
   providers: [DashboardAnalyticsService],
   exports: [DashboardAnalyticsService],

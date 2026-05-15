@@ -2,7 +2,17 @@
  * AccountEntity
  * TODO: Define columns, relations, and constraints.
  */
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn } from 'typeorm';
+
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  CreateDateColumn,
+  UpdateDateColumn,
+  ManyToOne,
+  JoinColumn,
+} from 'typeorm';
+import { UserEntity } from '../../users/entities/user.entity';
 
 @Entity('accounts')
 export class AccountEntity {
@@ -10,11 +20,24 @@ export class AccountEntity {
   id: string;
 
   @Column()
-  placeholder: string;
+  name: string;
 
-  @CreateDateColumn()
+  @Column({ nullable: true })
+  type: string;
+
+  @Column({ name: 'owner_id', nullable: true })
+  ownerId: string;
+
+  @Column({ type: 'jsonb', default: '{}' })
+  settings: Record<string, any>;
+
+  @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 
-  @UpdateDateColumn()
+  @UpdateDateColumn({ name: 'updated_at' })
   updatedAt: Date;
+
+  @ManyToOne(() => UserEntity, { nullable: true })
+  @JoinColumn({ name: 'owner_id' })
+  owner: UserEntity;
 }

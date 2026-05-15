@@ -2,10 +2,11 @@
  * RefreshTokenDto
  * TODO: Define validation rules and fields.
  */
-import { IsString, IsOptional, IsUUID } from 'class-validator';
+import { IsString } from 'class-validator';
+import { ApiProperty } from '@nestjs/swagger';
 
 export class RefreshTokenDto {
+  @ApiProperty()
   @IsString()
-  @IsOptional()
-  placeholder?: string;
+  refreshToken: string;
 }

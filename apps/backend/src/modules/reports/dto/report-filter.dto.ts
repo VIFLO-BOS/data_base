@@ -2,10 +2,22 @@
  * ReportFilterDto
  * TODO: Define validation rules and fields.
  */
-import { IsString, IsOptional, IsUUID } from 'class-validator';
+import { IsOptional, IsString, IsDateString } from 'class-validator';
+import { ApiPropertyOptional } from '@nestjs/swagger';
 
 export class ReportFilterDto {
-  @IsString()
+  @ApiPropertyOptional({ enum: ['timesheets', 'projects', 'taskers', 'users'] })
   @IsOptional()
-  placeholder?: string;
+  @IsString()
+  type?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsDateString()
+  startDate?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsDateString()
+  endDate?: string;
 }
