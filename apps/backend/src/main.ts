@@ -8,9 +8,30 @@ import { ValidationPipe } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 
+import helmet from 'helmet';
+import rateLimit from 'express-rate-limit';
+
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   const config = app.get(ConfigService);
+
+  // CORS - allow frontend to call the api. MUST be before rate limit and helmet so blocked requests get headers.
+  app.enableCors({
+    origin: config.get<string>('app.frontendUrl'),
+    credentials: true,
+  });
+
+  // Security headers
+  app.use(helmet());
+
+  // Rate limiting
+  app.use(
+    rateLimit({
+      windowMs: 15 * 60 * 1000, // 15 minutes
+      max: 5000, // Increased limit from 100 to 5000 for smoother development/usage
+      message: 'Too many requests from this IP, please try again later.',
+    }),
+  );
 
   // Global validation pipe — strips unknown fields, transforms types
   app.useGlobalPipes(
@@ -30,12 +51,6 @@ async function bootstrap() {
     .build();
   const document = SwaggerModule.createDocument(app, swaggerConfig);
   SwaggerModule.setup('api/docs', app, document);
-
-  // CORS - allow frontend to call the api
-  app.enableCors({
-    origin:config.get<string>('app.frontendUrl'),
-    credentials: true,
-  });
 
   // API versioning prefix
   app.setGlobalPrefix('api/v1');

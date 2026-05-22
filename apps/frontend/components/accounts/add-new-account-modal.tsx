@@ -1,144 +1,173 @@
 'use client';
 
-import React, { useState } from 'react';
-import { X, ChevronDown, Search } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { X, ChevronDown } from 'lucide-react';
+import { getProjects, Project } from '../../services/project-service';
+import { TaskerSearchInput } from '../taskers/tasker-search-input';
 
 interface AddNewAccountModalProps {
   onClose: () => void;
-  onCreate: (data: { project: string; accountName: string; clientName: string; taskers: string[] }) => void;
+  onCreate: (data: {
+    projectId?: string;
+    projectName?: string;
+    isNewProject: boolean;
+    accountName: string;
+    clientName: string;
+    taskers: { id: string; name: string }[];
+  }) => void;
 }
 
 /**
  * AddNewAccountModal Component
- * Modal form for adding a new account with project, account name, client name, and assigned taskers.
+ * Supabase-style modal form for adding a new account.
  */
 export function AddNewAccountModal({ onClose, onCreate }: AddNewAccountModalProps) {
-  const [project, setProject] = useState('');
+  const [projectId, setProjectId] = useState('');
+  const [newProjectName, setNewProjectName] = useState('');
+  const [isNewProject, setIsNewProject] = useState(false);
   const [accountName, setAccountName] = useState('');
   const [clientName, setClientName] = useState('');
-  const [taskerSearch, setTaskerSearch] = useState('');
-  const [selectedTaskers, setSelectedTaskers] = useState<string[]>([]);
+  const [selectedTaskers, setSelectedTaskers] = useState<{id: string; name: string}[]>([]);
+  const [projectsList, setProjectsList] = useState<Project[]>([]);
+  const [isLoadingProjects, setIsLoadingProjects] = useState(true);
 
-  const isValid = project && accountName && clientName;
-
-  const handleRemoveTasker = (tasker: string) => {
-    setSelectedTaskers((prev) => prev.filter((t) => t !== tasker));
-  };
-
-  const handleAddTasker = () => {
-    if (taskerSearch.trim() && !selectedTaskers.includes(taskerSearch.trim())) {
-      setSelectedTaskers((prev) => [...prev, taskerSearch.trim()]);
-      setTaskerSearch('');
+  useEffect(() => {
+    async function loadProjects() {
+      try {
+        setIsLoadingProjects(true);
+        const response = await getProjects(1, 100);
+        setProjectsList((response as any).data?.data || []);
+      } catch (error) {
+        console.error('Failed to fetch projects', error);
+      } finally {
+        setIsLoadingProjects(false);
+      }
     }
-  };
+    loadProjects();
+  }, []);
+
+
+  const isValid = (isNewProject ? newProjectName.trim() !== '' : projectId !== '') && accountName && clientName;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/30">
-      <div className="w-full max-w-[595px] p-6 bg-white rounded-xl border-0 shadow-sm/80 flex flex-col gap-4 animate-in fade-in zoom-in-95 duration-200">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+      <div className="w-full max-w-[560px] bg-white rounded-lg shadow-2xl flex flex-col overflow-hidden">
         {/* Header */}
-        <div className="pb-3 border-0 border-b shadow-[0_1px_2px_0_rgba(0,0,0,0.05)] flex justify-between items-center">
-          <h2 className="text-stone-900 text-2xl font-medium leading-6">
-            Add New Account
-          </h2>
+        <div className="px-6 py-4 border-b border-zinc-200 flex justify-between items-center">
+          <h2 className="text-stone-900 text-lg font-semibold">Add New Account</h2>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg hover:bg-zinc-100 transition-colors cursor-pointer"
+            className="p-1.5 rounded-md hover:bg-zinc-100 transition-colors cursor-pointer"
           >
-            <X className="w-5 h-5 text-stone-900" />
+            <X className="w-5 h-5 text-zinc-500" />
           </button>
         </div>
 
-        {/* Project Dropdown */}
-        <div className="flex flex-col gap-2">
-          <label className="text-stone-900 text-sm font-medium leading-6">Project</label>
-          <div className="relative">
-            <select
-              value={project}
-              onChange={(e) => setProject(e.target.value)}
-              className="w-full p-3 rounded-xl border-0 shadow-sm text-sm font-medium leading-6 appearance-none bg-white cursor-pointer text-stone-900 placeholder:text-stone-300 outline-none"
-            >
-              <option value="" disabled>Select Project</option>
-              <option value="Ventree">Ventree</option>
-              <option value="Outlier">Outlier</option>
-              <option value="Tatas Lustre">Tatas Lustre</option>
-            </select>
-            <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-500 pointer-events-none" />
+        {/* Body */}
+        <div className="px-6 py-5 flex flex-col gap-5">
+          {/* Project Dropdown or Creation Input */}
+          <div className="flex flex-col gap-1.5">
+            <div className="flex justify-between items-center">
+              <label className="text-stone-700 text-sm font-medium">
+                {isNewProject ? 'New Project Name' : 'Select Existing Project'}
+              </label>
+              <button
+                onClick={() => {
+                  setIsNewProject(!isNewProject);
+                  setProjectId('');
+                  setNewProjectName('');
+                }}
+                className="text-xs font-medium text-indigo-600 hover:text-indigo-700 transition-colors"
+              >
+                {isNewProject ? 'Select Existing Instead' : '+ Create New Project'}
+              </button>
+            </div>
+
+            {isNewProject ? (
+              <input
+                type="text"
+                placeholder="Enter new project name"
+                value={newProjectName}
+                onChange={(e) => setNewProjectName(e.target.value)}
+                className="w-full h-10 px-3 rounded-lg border border-zinc-300 bg-white text-sm text-stone-900 placeholder:text-zinc-400 outline-none focus:border-indigo-500 focus:ring-[3px] focus:ring-indigo-500/15 transition-all"
+              />
+            ) : (
+              <div className="relative">
+                <select
+                  value={projectId}
+                  onChange={(e) => setProjectId(e.target.value)}
+                  className="w-full h-10 px-3 rounded-lg border border-zinc-300 bg-white text-sm text-stone-900 appearance-none cursor-pointer outline-none focus:border-indigo-500 focus:ring-[3px] focus:ring-indigo-500/15 transition-all"
+                >
+                  <option value="" disabled>
+                    {isLoadingProjects ? "Loading projects..." : "Select Project"}
+                  </option>
+                  {projectsList.map((p) => (
+                    <option key={p.id} value={p.id}>{p.name}</option>
+                  ))}
+                </select>
+                <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400 pointer-events-none" />
+              </div>
+            )}
           </div>
-        </div>
 
-        {/* Account Name */}
-        <div className="flex flex-col gap-2">
-          <label className="text-stone-900 text-sm font-medium leading-6">Account Name</label>
-          <input
-            type="text"
-            placeholder="Enter Name"
-            value={accountName}
-            onChange={(e) => setAccountName(e.target.value)}
-            className="w-full p-3 rounded-xl border-0 shadow-sm text-sm font-medium leading-6 text-stone-900 placeholder:text-stone-300 outline-none focus:border-indigo-300 transition-colors"
-          />
-        </div>
-
-        {/* Client Name */}
-        <div className="flex flex-col gap-2">
-          <label className="text-stone-900 text-sm font-medium leading-6">Client Name</label>
-          <input
-            type="text"
-            placeholder="Enter Name"
-            value={clientName}
-            onChange={(e) => setClientName(e.target.value)}
-            className="w-full p-3 rounded-xl border-0 shadow-sm text-sm font-medium leading-6 text-stone-900 placeholder:text-stone-300 outline-none focus:border-indigo-300 transition-colors"
-          />
-        </div>
-
-        {/* Assigned Tasker(s) */}
-        <div className="flex flex-col gap-2">
-          <label className="text-stone-900 text-sm font-medium leading-6">Assigned Tasker(s)</label>
-          <div className="w-full h-12 px-4 bg-neutral-50 rounded-2xl border-0 shadow-sm flex items-center gap-3">
-            <Search className="w-5 h-5 text-stone-300 shrink-0" />
+          {/* Account Name */}
+          <div className="flex flex-col gap-1.5">
+            <label className="text-stone-700 text-sm font-medium">Account Name</label>
             <input
               type="text"
-              placeholder="Search here"
-              value={taskerSearch}
-              onChange={(e) => setTaskerSearch(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && handleAddTasker()}
-              className="flex-1 bg-transparent text-sm font-medium leading-6 text-stone-900 placeholder:text-stone-300 outline-none"
+              placeholder="Enter account name"
+              value={accountName}
+              onChange={(e) => setAccountName(e.target.value)}
+              className="w-full h-10 px-3 rounded-lg border border-zinc-300 bg-white text-sm text-stone-900 placeholder:text-zinc-400 outline-none focus:border-indigo-500 focus:ring-[3px] focus:ring-indigo-500/15 transition-all"
             />
           </div>
-          {/* Tag Chips */}
-          {selectedTaskers.length > 0 && (
-            <div className="flex flex-wrap gap-2 mt-1">
-              {selectedTaskers.map((tasker) => (
-                <div
-                  key={tasker}
-                  className="px-3 py-1 rounded-lg border-0 shadow-sm ring-1 ring-zinc-200 flex items-center gap-2 text-sm text-stone-900"
-                >
-                  {tasker}
-                  <button
-                    onClick={() => handleRemoveTasker(tasker)}
-                    className="text-stone-500 hover:text-stone-700 cursor-pointer"
-                  >
-                    <X className="w-3 h-3" />
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
+
+          {/* Client Name */}
+          <div className="flex flex-col gap-1.5">
+            <label className="text-stone-700 text-sm font-medium">Client Name</label>
+            <input
+              type="text"
+              placeholder="Enter client name"
+              value={clientName}
+              onChange={(e) => setClientName(e.target.value)}
+              className="w-full h-10 px-3 rounded-lg border border-zinc-300 bg-white text-sm text-stone-900 placeholder:text-zinc-400 outline-none focus:border-indigo-500 focus:ring-[3px] focus:ring-indigo-500/15 transition-all"
+            />
+          </div>
+
+          {/* Assigned Tasker(s) Autocomplete */}
+          <TaskerSearchInput 
+            selectedTaskers={selectedTaskers}
+            onChange={setSelectedTaskers}
+          />
         </div>
 
-        {/* Submit Button */}
-        <button
-          onClick={() => isValid && onCreate({ project, accountName, clientName, taskers: selectedTaskers })}
+        {/* Footer */}
+        <div className="px-6 py-4 border-t border-zinc-200 flex justify-end">
+          <button
+          onClick={() => {
+            if (isValid) {
+              const pName = isNewProject ? newProjectName : projectsList.find((p) => p.id === projectId)?.name || '';
+              onCreate({ 
+                projectId: isNewProject ? undefined : projectId, 
+                projectName: pName, 
+                isNewProject, 
+                accountName, 
+                clientName, 
+                taskers: selectedTaskers 
+              });
+            }
+          }}
           disabled={!isValid}
-          className={`w-full px-4 py-3 rounded-lg flex justify-center items-center transition-colors cursor-pointer ${
-            isValid
-              ? 'bg-indigo-600 hover:bg-indigo-700 text-white'
-              : 'bg-indigo-600/50 text-white/80 cursor-not-allowed'
-          }`}
-        >
-          <span className="text-base font-medium leading-6">Add Account</span>
-        </button>
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer ${
+              isValid
+                ? 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm'
+                : 'bg-zinc-100 text-zinc-400 cursor-not-allowed'
+            }`}
+          >
+            Add Account
+          </button>
+        </div>
       </div>
     </div>
   );
 }
-

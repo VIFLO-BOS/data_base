@@ -9,7 +9,28 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 export class CreateTaskerDto {
   @ApiProperty({ description: 'User ID to link this tasker profile to' })
   @IsString()
-  userId: string;
+  @IsOptional()
+  userId?: string;
+
+  @ApiPropertyOptional()
+  @IsString()
+  @IsOptional()
+  firstName?: string;
+
+  @ApiPropertyOptional()
+  @IsString()
+  @IsOptional()
+  lastName?: string;
+
+  @ApiPropertyOptional()
+  @IsString()
+  @IsOptional()
+  email?: string;
+
+  @ApiPropertyOptional()
+  @IsString()
+  @IsOptional()
+  status?: string;
 
   @ApiPropertyOptional({ example: ['data-labeling', 'image-annotation'] })
   @IsArray()

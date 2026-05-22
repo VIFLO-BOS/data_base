@@ -1,16 +1,23 @@
 'use client';
 
-import React, { useState } from 'react';
-import { X, ChevronDown, Search } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { X, ChevronDown } from 'lucide-react';
+import { getProjects, Project } from '../../services/project-service';
+import { TaskerSearchInput } from '../taskers/tasker-search-input';
 
 interface EditAccountModalProps {
   onClose: () => void;
-  onSave: (data: { project: string; accountName: string; clientName: string; taskers: string[] }) => void;
+  onSave: (data: {
+    project: string;
+    accountName: string;
+    clientName: string;
+    taskers: {id: string; name: string}[];
+  }) => void;
   initialData: {
     project: string;
     accountName: string;
     clientName: string;
-    taskers: string[];
+    taskers: {id: string; name: string}[];
   };
 }
 
@@ -22,30 +29,29 @@ export function EditAccountModal({ onClose, onSave, initialData }: EditAccountMo
   const [project, setProject] = useState(initialData.project);
   const [accountName, setAccountName] = useState(initialData.accountName);
   const [clientName, setClientName] = useState(initialData.clientName);
-  const [taskerSearch, setTaskerSearch] = useState('');
-  const [selectedTaskers, setSelectedTaskers] = useState<string[]>(initialData.taskers);
+  const [selectedTaskers, setSelectedTaskers] = useState<{id: string; name: string}[]>(initialData.taskers);
+  const [projectsList, setProjectsList] = useState<Project[]>([]);
+
+  useEffect(() => {
+    async function load() {
+      try {
+        const response = await getProjects(1, 100);
+        setProjectsList((response as any).data?.data || []);
+      } catch (e) {
+        console.error(e);
+      }
+    }
+    load();
+  }, []);
 
   const isValid = project && accountName && clientName;
-
-  const handleRemoveTasker = (tasker: string) => {
-    setSelectedTaskers((prev) => prev.filter((t) => t !== tasker));
-  };
-
-  const handleAddTasker = () => {
-    if (taskerSearch.trim() && !selectedTaskers.includes(taskerSearch.trim())) {
-      setSelectedTaskers((prev) => [...prev, taskerSearch.trim()]);
-      setTaskerSearch('');
-    }
-  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/30">
       <div className="w-full max-w-[595px] p-6 bg-white rounded-xl border-0 shadow-sm/80 flex flex-col gap-4 animate-in fade-in zoom-in-95 duration-200">
         {/* Header */}
         <div className="pb-3 border-0 border-b shadow-[0_1px_2px_0_rgba(0,0,0,0.05)] flex justify-between items-center">
-          <h2 className="text-stone-900 text-2xl font-medium leading-6">
-            Edit Account
-          </h2>
+          <h2 className="text-stone-900 text-2xl font-medium leading-6">Edit Account</h2>
           <button
             onClick={onClose}
             className="p-1.5 rounded-lg hover:bg-zinc-100 transition-colors cursor-pointer"
@@ -63,9 +69,11 @@ export function EditAccountModal({ onClose, onSave, initialData }: EditAccountMo
               onChange={(e) => setProject(e.target.value)}
               className="w-full p-3 rounded-xl border-0 shadow-sm text-sm font-medium leading-6 appearance-none bg-white cursor-pointer text-stone-900 outline-none"
             >
-              <option value="Ventree">Ventree</option>
-              <option value="Outlier">Outlier</option>
-              <option value="Tatas Lustre">Tatas Lustre</option>
+              {projectsList.map((p) => (
+                <option key={p.id} value={p.name}>
+                  {p.name}
+                </option>
+              ))}
             </select>
             <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-500 pointer-events-none" />
           </div>
@@ -93,43 +101,14 @@ export function EditAccountModal({ onClose, onSave, initialData }: EditAccountMo
           />
         </div>
 
-        {/* Assigned Tasker(s) */}
-        <div className="flex flex-col gap-2">
-          <label className="text-stone-900 text-sm font-medium leading-6">Assigned Tasker(s)</label>
-          <div className="w-full h-12 px-4 bg-neutral-50 rounded-2xl border-0 shadow-sm flex items-center gap-3">
-            <Search className="w-5 h-5 text-stone-300 shrink-0" />
-            <input
-              type="text"
-              placeholder="Search here"
-              value={taskerSearch}
-              onChange={(e) => setTaskerSearch(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && handleAddTasker()}
-              className="flex-1 bg-transparent text-sm font-medium leading-6 text-stone-900 placeholder:text-stone-300 outline-none"
-            />
-          </div>
-          {selectedTaskers.length > 0 && (
-            <div className="flex flex-wrap gap-2 mt-1">
-              {selectedTaskers.map((tasker) => (
-                <div
-                  key={tasker}
-                  className="px-3 py-1 rounded-lg border-0 shadow-sm ring-1 ring-zinc-200 flex items-center gap-2 text-sm text-stone-900"
-                >
-                  {tasker}
-                  <button
-                    onClick={() => handleRemoveTasker(tasker)}
-                    className="text-stone-500 hover:text-stone-700 cursor-pointer"
-                  >
-                    <X className="w-3 h-3" />
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
+        {/* Assigned Tasker(s) Autocomplete */}
+        <TaskerSearchInput selectedTaskers={selectedTaskers} onChange={setSelectedTaskers} />
 
         {/* Save Button */}
         <button
-          onClick={() => isValid && onSave({ project, accountName, clientName, taskers: selectedTaskers })}
+          onClick={() =>
+            isValid && onSave({ project, accountName, clientName, taskers: selectedTaskers })
+          }
           disabled={!isValid}
           className={`w-full px-4 py-3 rounded-lg flex justify-center items-center transition-colors cursor-pointer ${
             isValid
@@ -143,4 +122,3 @@ export function EditAccountModal({ onClose, onSave, initialData }: EditAccountMo
     </div>
   );
 }
-

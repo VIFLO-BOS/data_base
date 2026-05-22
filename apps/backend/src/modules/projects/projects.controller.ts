@@ -24,6 +24,7 @@ import { ProjectsService } from './projects.service';
 import { CreateProjectDto } from './dto/create-project.dto';
 import { UpdateProjectDto } from './dto/update-project.dto';
 import { Roles } from '../../common/decorators/roles.decorator';
+import { Public } from '../../common/decorators/public.decorator';
 
 @ApiTags('Projects')
 @ApiBearerAuth()
@@ -85,5 +86,19 @@ export class ProjectsController {
   @ApiOperation({ summary: 'Remove a tasker from a project' })
   removeTasker(@Param('id') id: string, @Param('taskerId') taskerId: string) {
     return this.projectsService.removeTasker(id, taskerId);
+  }
+
+  @Post(':id/accounts/:accountId')
+  @Roles('admin', 'super_admin')
+  @ApiOperation({ summary: 'Assign an account to a project' })
+  assignAccount(@Param('id') id: string, @Param('accountId') accountId: string) {
+    return this.projectsService.assignAccount(id, accountId);
+  }
+
+  @Delete(':id/accounts/:accountId')
+  @Roles('admin', 'super_admin')
+  @ApiOperation({ summary: 'Remove an account from a project' })
+  removeAccount(@Param('id') id: string, @Param('accountId') accountId: string) {
+    return this.projectsService.removeAccount(id, accountId);
   }
 }

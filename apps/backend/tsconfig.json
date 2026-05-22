@@ -23,7 +23,7 @@
       "@config/*": ["src/config/*"],
       "@database/*": ["src/database/*"],
       "@modules/*": ["src/modules/*"],
-      "@annotator-platform/shared-rbac": ["../../packages/shared-rbac/src/index.ts"], // Add this
+      "@annotator-platform/shared-rbac": ["../../packages/shared-rbac/src/index.ts"],
       "@annotator-platform/shared-rbac/*": ["../../packages/shared-rbac/*"]
     }
   }

@@ -18,14 +18,38 @@ export class AccountsService {
   ) {}
 
   async findAll(page = 1, limit = 20) {
-    const [data, total] = await this.accountsRepo.findAndCount({
-      relations: ['owner'],
-      skip: (page - 1) * limit,
-      take: limit,
-      order: { createdAt: 'DESC' },
+    const qb = this.accountsRepo
+      .createQueryBuilder('account')
+      .leftJoinAndSelect('account.owner', 'owner')
+      .leftJoinAndSelect('account.projects', 'project')
+      .leftJoinAndSelect('project.taskers', 'tasker')
+      .leftJoinAndSelect('project.timesheets', 'timesheet')
+      .orderBy('account.createdAt', 'DESC')
+      .skip((page - 1) * limit)
+      .take(limit);
+
+    const [data, total] = await qb.getManyAndCount();
+
+    const enriched = data.map((account) => {
+      let accountTotalHours = 0;
+      if (account.projects) {
+        account.projects.forEach(project => {
+          const projectHours = (project.timesheets || []).reduce(
+            (sum: number, ts: any) => sum + Number(ts.totalHours || 0),
+            0
+          );
+          project.totalHours = projectHours;
+          accountTotalHours += projectHours;
+        });
+      }
+      return {
+        ...account,
+        totalHours: accountTotalHours,
+      };
     });
+
     return {
-      data,
+      data: enriched,
       meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
     };
   }
@@ -33,7 +57,7 @@ export class AccountsService {
   async findById(id: string) {
     const account = await this.accountsRepo.findOne({
       where: { id },
-      relations: ['owner'],
+      relations: ['owner', 'projects', 'projects.taskers'],
     });
     if (!account) throw new NotFoundException('Account not found');
     return account;

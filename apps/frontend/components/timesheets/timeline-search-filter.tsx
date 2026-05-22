@@ -1,36 +1,98 @@
-import React from 'react';
+'use client';
+
+import React, { useState, useRef, useEffect } from 'react';
+import { Search, ChevronDown } from 'lucide-react';
 
 interface TimelineSearchFilterProps {
- projectFilter?: string;
+  projectFilter?: string;
+  projects?: string[];
+  onProjectChange?: (project: string) => void;
+  onSearchChange?: (value: string) => void;
 }
 
 /**
  * TimelineSearchFilter Component
- * Search bar + project dropdown filter for timeline.
+ * Supabase-style search bar + project dropdown filter for timeline.
  */
-export function TimelineSearchFilter({ projectFilter = 'Ventree' }: TimelineSearchFilterProps) {
- return (
- <div className="self-stretch inline-flex justify-between items-start">
- <div className="flex justify-start items-center gap-4">
- <div className="w-80 h-14 px-5 bg-neutral-50 rounded-2xl flex justify-start items-center gap-3">
- <div className="w-5 h-5 relative">
- <div className="w-3.5 h-3.5 left-[2.31px] top-[2.32px] absolute rounded-full outline outline-[1.50px] outline-offset-[-0.75px] outline-stone-300" />
- <div className="w-[2.94px] h-[2.93px] left-[15.02px] top-[15.40px] absolute outline outline-[1.50px] outline-offset-[-0.75px] outline-stone-300" />
- </div>
- <div className="flex-1 justify-center text-stone-300 text-sm font-medium leading-6">
- Search here
- </div>
- </div>
- </div>
- <div className="w-60 p-3 rounded-xl shadow-sm border-0 flex justify-between items-center">
- <div className="flex-1 justify-start text-text-primary text-sm font-medium leading-6">
- {projectFilter}
- </div>
- <div className="w-6 h-6 relative overflow-hidden">
- <div className="w-2.5 h-[5px] left-[7px] top-[10px] absolute outline outline-[1.50px] outline-offset-[-0.75px] outline-black" />
- </div>
- </div>
- </div>
- );
-}
+export function TimelineSearchFilter({
+  projectFilter = 'All Projects',
+  onProjectChange,
+  onSearchChange,
+}: Omit<TimelineSearchFilterProps, 'projects'>) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [selected, setSelected] = useState(projectFilter === 'Ventree' ? 'All Projects' : projectFilter);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  const [projectsList, setProjectsList] = useState<string[]>(['All Projects']);
 
+  useEffect(() => {
+    async function fetchProjects() {
+      try {
+        const { getProjects } = await import('../../services/project-service');
+        const res = await getProjects(1, 100);
+        const data = (res as any).data?.data || [];
+        setProjectsList(['All Projects', ...data.map((p: any) => p.name)]);
+      } catch (e) {
+        console.error(e);
+      }
+    }
+    fetchProjects();
+  }, []);
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setIsOpen(false);
+      }
+    }
+    if (isOpen) document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [isOpen]);
+
+  return (
+    <div className="self-stretch flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+      {/* Search Bar */}
+      <div className="w-full sm:w-80 relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400 pointer-events-none" />
+        <input
+          type="text"
+          placeholder="Search timesheets..."
+          onChange={(e) => onSearchChange?.(e.target.value)}
+          className="w-full h-10 pl-10 pr-4 bg-white text-sm text-stone-900 rounded-lg border border-zinc-300 placeholder:text-zinc-400 focus:border-indigo-500 focus:ring-[3px] focus:ring-indigo-500/15 outline-none transition-all"
+        />
+      </div>
+
+      {/* Project Dropdown */}
+      <div className="relative" ref={dropdownRef}>
+        <button
+          onClick={() => setIsOpen(!isOpen)}
+          className={`min-w-[180px] h-10 px-3 rounded-lg bg-white border flex justify-between items-center gap-3 hover:bg-zinc-50 transition-all cursor-pointer ${
+            isOpen ? 'border-indigo-500 ring-[3px] ring-indigo-500/15' : 'border-zinc-300'
+          }`}
+        >
+          <span className="text-stone-900 text-sm font-medium">{selected}</span>
+          <ChevronDown className={`w-4 h-4 text-zinc-400 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
+        </button>
+
+        {isOpen && (
+          <div className="absolute right-0 top-full mt-1.5 min-w-[180px] bg-white rounded-lg shadow-lg border border-zinc-200 py-1 z-50">
+            {projectsList.map((project) => (
+              <button
+                key={project}
+                onClick={() => {
+                  setSelected(project);
+                  onProjectChange?.(project);
+                  setIsOpen(false);
+                }}
+                className={`w-full px-3 py-2 text-left text-sm font-medium transition-colors hover:bg-zinc-50 ${
+                  project === selected ? 'text-indigo-600 bg-indigo-50' : 'text-stone-700'
+                }`}
+              >
+                {project}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}

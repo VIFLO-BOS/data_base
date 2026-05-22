@@ -59,11 +59,11 @@ export class TimesheetEntity {
   @UpdateDateColumn({ name: 'updated_at' })
   updatedAt: Date;
 
-  @ManyToOne(() => TaskerEntity)
+  @ManyToOne(() => TaskerEntity, (tasker) => tasker.timesheets)
   @JoinColumn({ name: 'tasker_id' })
   tasker: TaskerEntity;
 
-  @ManyToOne(() => ProjectEntity)
+  @ManyToOne(() => ProjectEntity, (project) => project.timesheets)
   @JoinColumn({ name: 'project_id' })
   project: ProjectEntity;
 

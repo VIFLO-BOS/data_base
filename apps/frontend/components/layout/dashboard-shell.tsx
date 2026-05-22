@@ -12,6 +12,11 @@ function getTitleFromPath(path: string) {
   if (path.includes('/accounts')) return 'Accounts';
   if (path.includes('/taskers')) return 'Taskers';
   if (path.includes('/projects')) return 'Projects';
+  if (path.includes('/notifications')) return 'Notifications';
+  if (path.includes('/audit-logs')) return 'Audit Logs';
+  if (path.includes('/reports')) return 'Reports';
+  if (path.includes('/users')) return 'Users';
+  if (path.includes('/profile')) return 'Profile';
   if (path.includes('/settings')) return 'Settings';
   return 'Dashboard'; // Fallback
 }
@@ -27,7 +32,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   const [drawerOpen, setDrawerOpen] = useState(false);
 
   return (
-    <div className="flex w-full h-screen bg-neutral-50 overflow-hidden">
+    <div className="flex w-full h-screen bg-[#f8f9fb] overflow-hidden">
       {/* Desktop Sidebar — fixed height, never scrolls */}
       <Sidebar />
 

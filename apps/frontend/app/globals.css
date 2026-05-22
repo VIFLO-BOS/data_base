@@ -56,6 +56,35 @@
   body {
     @apply bg-background text-foreground;
   }
+
+  /* Smooth scrolling globally */
+  html {
+    scroll-behavior: smooth;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Improved focus-visible rings for accessibility + aesthetics */
+  *:focus-visible {
+    @apply outline-none ring-2 ring-indigo-500/40 ring-offset-2 ring-offset-white;
+    transition: box-shadow 0.15s ease;
+  }
+
+  /* Better selection color */
+  ::selection {
+    background: rgba(99, 102, 241, 0.15);
+    color: inherit;
+  }
+}
+
+/* ─── Global Transitions ───
+   Every interactive element gets smooth transitions by default */
+
+@layer utilities {
+  .transition-gpu {
+    transform: translateZ(0);
+    will-change: transform;
+  }
 }
 
 /* ─── Component Visibility Enhancements ───
@@ -65,41 +94,55 @@
 @layer components {
   /* ── Sidebar ── */
   aside.w-60 {
-    box-shadow: 2px 0 8px 0 rgba(0, 0, 0, 0.06);
+    box-shadow: 2px 0 12px 0 rgba(0, 0, 0, 0.04),
+                1px 0 4px 0 rgba(0, 0, 0, 0.03);
     border-right-color: rgb(228 228 231) !important;   /* zinc-200 */
   }
 
   /* ── Top Bar ── */
   header.border-b {
-    box-shadow: 0 2px 6px 0 rgba(0, 0, 0, 0.05);
+    box-shadow: 0 2px 8px 0 rgba(0, 0, 0, 0.04);
     border-bottom-color: rgb(228 228 231) !important;  /* zinc-200 */
+    backdrop-filter: blur(12px);
+    background: rgba(255, 255, 255, 0.95) !important;
   }
 
   /* ── Main content cards (white panels with rounded-xl) ── */
   .bg-white.rounded-xl {
     box-shadow:
-      0 1px 3px 0 rgba(0, 0, 0, 0.06),
-      0 2px 8px 0 rgba(0, 0, 0, 0.04);
+      0 1px 3px 0 rgba(0, 0, 0, 0.04),
+      0 4px 12px 0 rgba(0, 0, 0, 0.03);
+    transition: box-shadow 0.25s ease, transform 0.25s ease;
   }
 
   /* ── Chart wrapper (rounded-2xl variant) ── */
   .bg-white.rounded-2xl {
     box-shadow:
-      0 1px 3px 0 rgba(0, 0, 0, 0.06),
-      0 2px 8px 0 rgba(0, 0, 0, 0.04);
+      0 1px 3px 0 rgba(0, 0, 0, 0.04),
+      0 4px 12px 0 rgba(0, 0, 0, 0.03);
+    transition: box-shadow 0.25s ease;
   }
 
   /* ── Stat / detail cards (neutral-50 inset cards) ── */
   .bg-neutral-50.rounded-xl {
     box-shadow:
-      0 1px 2px 0 rgba(0, 0, 0, 0.05),
-      0 1px 4px 0 rgba(0, 0, 0, 0.03);
-    outline-color: rgb(228 228 231) !important;        /* zinc-200 – bolder border */
+      0 1px 2px 0 rgba(0, 0, 0, 0.04),
+      0 2px 6px 0 rgba(0, 0, 0, 0.02);
+    outline-color: rgb(228 228 231) !important;        /* zinc-200 */
+    transition: box-shadow 0.2s ease, transform 0.2s ease;
+  }
+
+  /* Lift effect on hover for stat cards */
+  .bg-neutral-50.rounded-xl:hover {
+    box-shadow:
+      0 2px 4px 0 rgba(0, 0, 0, 0.06),
+      0 4px 12px 0 rgba(0, 0, 0, 0.04);
+    transform: translateY(-1px);
   }
 
   /* ── Filter pill groups ── */
   .bg-neutral-50.rounded-lg {
-    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05);
+    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.04);
     outline-color: rgb(228 228 231) !important;
   }
 
@@ -113,8 +156,8 @@
   /* ── Profile dropdown ── */
   .shadow-lg.border.border-zinc-100 {
     box-shadow:
-      0 4px 12px 0 rgba(0, 0, 0, 0.10),
-      0 1px 4px 0 rgba(0, 0, 0, 0.06) !important;
+      0 4px 16px 0 rgba(0, 0, 0, 0.08),
+      0 2px 6px 0 rgba(0, 0, 0, 0.04) !important;
     border-color: rgb(228 228 231) !important;
   }
 
@@ -125,7 +168,166 @@
 
   /* ── Search bars (neutral-50, rounded-2xl) ── */
   .bg-neutral-50.rounded-2xl {
-    box-shadow: inset 0 1px 3px 0 rgba(0, 0, 0, 0.04);
+    box-shadow: inset 0 1px 3px 0 rgba(0, 0, 0, 0.03);
     outline: 1px solid rgb(228 228 231);
+    transition: box-shadow 0.2s ease, outline-color 0.2s ease;
   }
+
+  .bg-neutral-50.rounded-2xl:focus-within {
+    outline-color: rgb(165 180 252);  /* indigo-300 */
+    box-shadow: inset 0 1px 3px 0 rgba(0, 0, 0, 0.03),
+                0 0 0 3px rgba(99, 102, 241, 0.08);
+  }
+}
+
+/* ─── Micro-Animations ─── */
+
+/* Page content fade-in on mount */
+main > * {
+  animation: contentFadeIn 0.35s ease-out;
+}
+
+@keyframes contentFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Staggered animation for grid children (stat cards, table rows, etc.) */
+.grid > *:nth-child(1) { animation-delay: 0ms; }
+.grid > *:nth-child(2) { animation-delay: 60ms; }
+.grid > *:nth-child(3) { animation-delay: 120ms; }
+.grid > *:nth-child(4) { animation-delay: 180ms; }
+.grid > *:nth-child(5) { animation-delay: 240ms; }
+.grid > *:nth-child(6) { animation-delay: 300ms; }
+
+.grid > * {
+  animation: cardSlideIn 0.4s ease-out both;
+}
+
+@keyframes cardSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Dropdown / popover entrance */
+@keyframes dropdownIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Skeleton loading shimmer */
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    rgb(244 244 245) 25%,
+    rgb(250 250 250) 37%,
+    rgb(244 244 245) 63%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s ease-in-out infinite;
+  border-radius: 0.5rem;
+}
+
+/* ─── Button Enhancements ─── */
+button {
+  transition: all 0.15s ease;
+}
+
+button:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+/* ─── Table Row Hover ─── */
+table tbody tr {
+  transition: background-color 0.15s ease;
+}
+
+table tbody tr:hover {
+  background-color: rgb(250 250 250);
+}
+
+/* Zebra striping */
+table tbody tr:nth-child(even) {
+  background-color: rgb(252 252 252);
+}
+
+table tbody tr:nth-child(even):hover {
+  background-color: rgb(248 248 248);
+}
+
+/* ─── Global Form Input Standardization (Supabase-inspired) ─── */
+input[type="text"],
+input[type="email"],
+input[type="password"],
+input[type="number"],
+input[type="tel"],
+input[type="url"],
+select,
+textarea {
+  border: 1px solid rgb(212 212 216);  /* zinc-300 — visible border */
+  background-color: #fff;
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+input[type="text"]:focus,
+input[type="email"]:focus,
+input[type="password"]:focus,
+input[type="number"]:focus,
+input[type="tel"]:focus,
+input[type="url"]:focus,
+select:focus,
+textarea:focus {
+  border-color: rgb(99 102 241);  /* indigo-500 */
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+  outline: none;
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: rgb(161 161 170);  /* zinc-400 */
+}
+
+/* ─── Scrollbar Styling ─── */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgb(212 212 216);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgb(161 161 170);
 }

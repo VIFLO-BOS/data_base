@@ -1,3 +1,5 @@
+'use client';
+
 /**
  * Dashboard Layout
  * Shared dashboard shell with:

@@ -69,4 +69,32 @@ export class TaskersController {
   remove(@Param('id') id: string) {
     return this.taskersService.delete(id);
   }
+
+  @Post(':id/payments')
+  @Roles('admin', 'super_admin')
+  @ApiOperation({ summary: 'Add a payment to a tasker' })
+  addPayment(@Param('id') id: string, @Body() dto: any) {
+    return this.taskersService.addPayment(id, dto);
+  }
+
+  @Post(':id/hours')
+  @Roles('admin', 'super_admin')
+  @ApiOperation({ summary: 'Add daily hours or casualties to a tasker' })
+  addDailyHour(@Param('id') id: string, @Body() dto: any) {
+    return this.taskersService.addDailyHour(id, dto);
+  }
+
+  @Patch(':id/payments/:paymentId')
+  @Roles('admin', 'super_admin')
+  @ApiOperation({ summary: 'Update a tasker payment' })
+  updatePayment(@Param('paymentId') paymentId: string, @Body() dto: any) {
+    return this.taskersService.updatePayment(paymentId, dto);
+  }
+
+  @Patch(':id/hours/:hourId')
+  @Roles('admin', 'super_admin')
+  @ApiOperation({ summary: 'Update tasker daily hours' })
+  updateDailyHour(@Param('hourId') hourId: string, @Body() dto: any) {
+    return this.taskersService.updateDailyHour(hourId, dto);
+  }
 }

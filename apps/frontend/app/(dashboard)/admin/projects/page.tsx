@@ -1,50 +1,99 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState,useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { ProjectsHeader } from '../../../../components/projects/projects-header';
 import { SearchBar } from '../../../../components/projects/search-bar';
 import { EmptyState } from '../../../../components/projects/empty-state';
 import { NewProjectModal } from '../../../../components/projects/new-project-modal';
 import { ProjectSuccessModal } from '../../../../components/projects/project-success-modal';
 import { ProjectList } from '../../../../components/projects/project-list';
-import { useDashboardStore } from '../../../../store/dashboardStore';
+import { getProjects, createProject, deleteProject, Project } from '../../../../services/project-service';
+import { Loader2 } from 'lucide-react';
 
 export default function ProjectsPage() {
-  const { projects, addProject } = useDashboardStore();
+  const router = useRouter();
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [isNewProjectOpen, setIsNewProjectOpen] = useState(false);
   const [isSuccessOpen, setIsSuccessOpen] = useState(false);
 
-  const handleCreateProject = (newProject: any) => {
-    addProject({
-      ...newProject,
-      accountsCount: 0,
-      taskersCount: 0,
-      dateCreated: new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'long', day: 'numeric', year: 'numeric' }),
-    });
-    setIsNewProjectOpen(false);
-    setIsSuccessOpen(true);
+  useEffect(() => {
+    fetchProjects();
+  }, []);
+
+  const fetchProjects = async () => {
+    setIsLoading(true);
+    try {
+      const response: any = await getProjects();
+      setProjects(response?.data || []);
+    } catch (error) {
+      console.error("Failed to fetch projects:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const mappedProjects = projects.map((p: any) => ({
+    id: p.id,
+    name: p.name,
+    accounts: p.accounts || [],
+    accountsCount: p.accounts?.length || 0,
+    taskersCount: p.taskers?.length || p.taskersCount || 0,
+    dateCreated: new Date(p.createdAt).toLocaleDateString('en-US', { weekday: 'short', month: 'long', day: 'numeric', year: 'numeric' }),
+  }));
+
+  const handleCreateProject = async (newProject: any) => {
+    try {
+      await createProject({
+        name: newProject.name,
+        platformName: newProject.platformName,
+        platformUrl: newProject.platformUrl,
+        pricePerHour: newProject.pricePerHour,
+      });
+      fetchProjects();
+      setIsNewProjectOpen(false);
+      setIsSuccessOpen(true);
+    } catch (error) {
+      console.error("Failed to create project:", error);
+    }
+  };
+
+  const handleDeleteProject = async (projectId: string) => {
+    try {
+      await deleteProject(projectId);
+      fetchProjects();
+    } catch (error) {
+      console.error("Failed to delete project:", error);
+    }
   };
 
   return (
-    <div className="flex-1 flex flex-col justify-start items-start gap-6 w-full h-full pb-8 px-6">
-      {/* Header */}
-      <ProjectsHeader 
-        count={projects.length} 
-        onNewClick={() => setIsNewProjectOpen(true)} 
-      />
+    <div className="flex-1 flex flex-col justify-start items-start gap-6 w-full">
+      {/* White card wrapper — consistent with Accounts/Taskers/Timesheets */}
+      <div className="self-stretch p-6 bg-white rounded-xl shadow-md border-0 flex flex-col gap-4">
+        {/* Header */}
+        <ProjectsHeader 
+          count={projects.length} 
+          onNewClick={() => setIsNewProjectOpen(true)} 
+        />
 
-      {/* Projects Content */}
-      <div className="self-stretch flex flex-col justify-start items-start gap-6 w-full">
         {/* Search Bar */}
-        <div className="w-full">
-          <SearchBar />
-        </div>
+        <SearchBar />
 
         {/* Dynamic Content */}
-        {projects.length === 0 ? (
+        {isLoading ? (
+          <div className="w-full flex justify-center py-12">
+            <Loader2 className="w-8 h-8 text-indigo-500 animate-spin" />
+          </div>
+        ) : mappedProjects.length === 0 ? (
           <EmptyState onCreateClick={() => setIsNewProjectOpen(true)} />
         ) : (
-          <ProjectList projects={projects} />
+          <ProjectList 
+            projects={mappedProjects} 
+            onDelete={handleDeleteProject} 
+            onViewDetails={(project) => router.push(`/admin/projects/${project.id}`)}
+          />
         )}
       </div>
 

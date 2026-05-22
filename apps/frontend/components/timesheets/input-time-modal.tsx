@@ -13,7 +13,7 @@ interface InputTimeModalProps {
 
 /**
  * InputTimeModal Component
- * Modal for inputting hours and minutes for a specific date.
+ * Supabase-style modal for inputting hours and minutes.
  */
 export function InputTimeModal({
   date = 'Monday 2nd, March, 2026',
@@ -35,65 +35,71 @@ export function InputTimeModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/30 flex justify-center items-center">
-      <div className="w-[500px] p-6 bg-white rounded-2xl shadow-xl flex flex-col gap-6">
-        <div className="flex justify-between items-center border-0 border-b shadow-[0_1px_2px_0_rgba(0,0,0,0.05)] pb-4">
+    <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex justify-center items-center p-4">
+      <div className="w-full max-w-[460px] bg-white rounded-lg shadow-2xl flex flex-col overflow-hidden">
+        {/* Header */}
+        <div className="px-6 py-4 border-b border-zinc-200 flex justify-between items-center">
           <div className="flex items-center gap-3">
-            <h2 className="text-stone-900 text-lg font-medium">Input time</h2>
+            <h2 className="text-stone-900 text-lg font-semibold">Input Time</h2>
             <div className="w-px h-4 bg-zinc-300"></div>
             <span className="text-zinc-500 text-sm">Date</span>
-            <div className="px-3 py-1 bg-zinc-100 rounded-full flex items-center">
-              <span className="text-stone-900 text-xs font-medium">{date}</span>
+            <div className="px-2.5 py-0.5 bg-indigo-50 rounded-full ring-1 ring-indigo-100">
+              <span className="text-indigo-600 text-xs font-medium">{date}</span>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-1 hover:bg-zinc-100 rounded-full transition-colors"
+            className="p-1.5 rounded-md hover:bg-zinc-100 transition-colors cursor-pointer"
           >
-            <X className="w-5 h-5 text-stone-500" />
+            <X className="w-5 h-5 text-zinc-500" />
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="flex flex-col gap-6">
-          <div className="flex gap-4">
-            <div className="flex-1 flex flex-col gap-2">
-              <label className="text-stone-900 text-sm font-medium">Hours</label>
+        {/* Body */}
+        <form onSubmit={handleSubmit} className="px-6 py-5 flex flex-col gap-5">
+          <div className="grid grid-cols-2 gap-4">
+            <div className="flex flex-col gap-1.5">
+              <label className="text-stone-700 text-sm font-medium">Hours</label>
               <input
                 type="number"
                 min="0"
                 max="24"
                 value={hours}
                 onChange={(e) => setHours(e.target.value)}
-                placeholder="Enter"
-                className="w-full p-3 rounded-xl border-0 shadow-sm ring-1 ring-zinc-200 outline-none focus:border-indigo-600 transition-colors placeholder:text-stone-400"
+                placeholder="0"
+                className="w-full h-10 px-3 rounded-lg border border-zinc-300 bg-white text-sm text-stone-900 placeholder:text-zinc-400 outline-none focus:border-indigo-500 focus:ring-[3px] focus:ring-indigo-500/15 transition-all"
               />
             </div>
-            <div className="flex-1 flex flex-col gap-2">
-              <label className="text-stone-900 text-sm font-medium">Minutes</label>
+            <div className="flex flex-col gap-1.5">
+              <label className="text-stone-700 text-sm font-medium">Minutes</label>
               <input
                 type="number"
                 min="0"
                 max="59"
                 value={minutes}
                 onChange={(e) => setMinutes(e.target.value)}
-                placeholder="Enter"
-                className="w-full p-3 rounded-xl border-0 shadow-sm ring-1 ring-zinc-200 outline-none focus:border-indigo-600 transition-colors placeholder:text-stone-400"
+                placeholder="00"
+                className="w-full h-10 px-3 rounded-lg border border-zinc-300 bg-white text-sm text-stone-900 placeholder:text-zinc-400 outline-none focus:border-indigo-500 focus:ring-[3px] focus:ring-indigo-500/15 transition-all"
               />
             </div>
           </div>
 
-          <button
-            type="submit"
-            disabled={!isFormValid}
-            className={`w-full py-3 rounded-xl text-white font-medium transition-colors mt-2 ${
-              isFormValid ? 'bg-indigo-600 hover:bg-indigo-700' : 'bg-indigo-400 cursor-not-allowed'
-            }`}
-          >
-            Add Time
-          </button>
+          {/* Footer */}
+          <div className="pt-4 border-t border-zinc-200 flex justify-end">
+            <button
+              type="submit"
+              disabled={!isFormValid}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer ${
+                isFormValid
+                  ? 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm'
+                  : 'bg-zinc-100 text-zinc-400 cursor-not-allowed'
+              }`}
+            >
+              Add Time
+            </button>
+          </div>
         </form>
       </div>
     </div>
   );
 }
-

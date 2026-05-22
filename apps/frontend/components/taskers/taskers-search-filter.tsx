@@ -10,7 +10,7 @@ interface TaskersSearchFilterProps {
 
 /**
  * TaskersSearchFilter Component
- * Search bar + filter tabs (Assigned/Unassigned or All/Active/Inactive).
+ * Supabase-style search bar + filter tabs.
  */
 export function TaskersSearchFilter({
   activeFilter,
@@ -19,34 +19,34 @@ export function TaskersSearchFilter({
   onSearchChange,
 }: TaskersSearchFilterProps) {
   return (
-    <div className="self-stretch flex justify-between items-center">
-      <div className="w-80 h-11 px-4 bg-neutral-50 rounded-xl flex justify-start items-center gap-3">
-        <Search className="w-4 h-4 text-stone-400" />
+    <div className="self-stretch flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+      {/* Search Bar */}
+      <div className="w-full sm:w-80 relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400 pointer-events-none" />
         <input
           type="text"
-          placeholder="Search here"
-          className="flex-1 bg-transparent text-stone-900 text-sm font-medium leading-5 outline-none placeholder:text-stone-400"
+          placeholder="Search taskers..."
+          className="w-full h-10 pl-10 pr-4 bg-white text-sm text-stone-900 rounded-lg border border-zinc-300 placeholder:text-zinc-400 focus:border-indigo-500 focus:ring-[3px] focus:ring-indigo-500/15 outline-none transition-all"
           onChange={(e) => onSearchChange(e.target.value)}
         />
       </div>
-      <div className="p-1 bg-neutral-50 rounded-lg shadow-sm border-0 flex justify-center items-center gap-1">
+
+      {/* Filter Tabs */}
+      <div className="p-0.5 bg-zinc-100 rounded-lg flex items-center gap-0.5">
         {filters.map((filter) => (
           <button
             key={filter}
             onClick={() => onFilterChange(filter)}
-            className={`px-4 py-1.5 rounded-md transition-all ${
+            className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all duration-200 cursor-pointer ${
               filter === activeFilter
                 ? 'bg-white shadow-sm text-stone-900'
-                : 'text-stone-500 hover:text-stone-700 hover:bg-zinc-100/50'
+                : 'text-zinc-500 hover:text-stone-700'
             }`}
           >
-            <span className="text-sm font-medium leading-5">
-              {filter}
-            </span>
+            {filter}
           </button>
         ))}
       </div>
     </div>
   );
 }
-

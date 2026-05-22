@@ -3,7 +3,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Calendar, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
 
-type FilterType = 'Day' | 'Week' | 'Month' | 'Year';
+type FilterType = 'Day' | 'Week' | 'Month' | 'Year' | 'All Time';
 
 interface OverviewFilterProps {
   activeFilter: FilterType;
@@ -38,7 +38,7 @@ export function OverviewFilter({
   selectedDate,
   onDateChange,
 }: OverviewFilterProps) {
-  const filters: FilterType[] = ['Day', 'Week', 'Month', 'Year'];
+  const filters: FilterType[] = ['Day', 'Week', 'Month', 'Year', 'All Time'];
 
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -100,11 +100,10 @@ export function OverviewFilter({
           <button
             key={filter}
             onClick={() => onFilterChange?.(filter)}
-            className={`px-3 py-1.5 rounded-md text-stone-900 font-medium transition-all duration-200 ${
-              filter === activeFilter
+            className={`px-3 py-1.5 rounded-md text-stone-900 font-medium transition-all duration-200 ${filter === activeFilter
                 ? 'bg-white shadow-sm ring-1 ring-zinc-200 text-sm'
                 : 'hover:bg-zinc-200/50 text-sm text-zinc-500'
-            }`}
+              }`}
           >
             {filter}
           </button>
@@ -116,10 +115,9 @@ export function OverviewFilter({
         <button
           onClick={() => setIsCalendarOpen(!isCalendarOpen)}
           className={`px-3 py-1.5 rounded-lg flex items-center gap-2 transition-all duration-200 outline-none
-            ${
-              isCalendarOpen
-                ? 'bg-zinc-100 border border-zinc-300 ring-2 ring-zinc-900/5 ring-offset-1 text-stone-900 shadow-inner'
-                : 'bg-white border-0 shadow-sm ring-1 ring-zinc-200 text-stone-700 shadow-sm hover:bg-zinc-50 hover:border-zinc-300'
+            ${isCalendarOpen
+              ? 'bg-zinc-100 border border-zinc-300 ring-2 ring-zinc-900/5 ring-offset-1 text-stone-900 shadow-inner'
+              : 'bg-white border-0 shadow-sm ring-1 ring-zinc-200 text-stone-700 shadow-sm hover:bg-zinc-50 hover:border-zinc-300'
             }
           `}
         >
@@ -193,12 +191,11 @@ export function OverviewFilter({
                     onClick={() => handleSelectDate(day)}
                     className={`
                       h-8 w-full rounded-md text-sm font-medium flex items-center justify-center transition-colors
-                      ${
-                        isSelected
-                          ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/20'
-                          : isToday
-                            ? 'bg-zinc-100 text-stone-900 font-medium ring-1 ring-inset ring-zinc-200'
-                            : 'text-stone-700 hover:bg-zinc-100 hover:text-stone-900'
+                      ${isSelected
+                        ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/20'
+                        : isToday
+                          ? 'bg-zinc-100 text-stone-900 font-medium ring-1 ring-inset ring-zinc-200'
+                          : 'text-stone-700 hover:bg-zinc-100 hover:text-stone-900'
                       }
                     `}
                   >

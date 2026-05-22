@@ -3,7 +3,13 @@
  * TODO: Define validation rules and fields.
  */
 
-import { IsString, IsOptional, IsDateString, IsNumber } from 'class-validator';
+import {
+  IsString,
+  IsOptional,
+  IsDateString,
+  IsNumber,
+  IsArray,
+} from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class CreateProjectDto {
@@ -15,6 +21,21 @@ export class CreateProjectDto {
   @IsString()
   @IsOptional()
   description?: string;
+
+  @ApiPropertyOptional({ example: 'Upwork' })
+  @IsString()
+  @IsOptional()
+  platformName?: string;
+
+  @ApiPropertyOptional({ example: 'https://upwork.com' })
+  @IsString()
+  @IsOptional()
+  platformUrl?: string;
+
+  @ApiPropertyOptional({ example: 15.5 })
+  @IsNumber()
+  @IsOptional()
+  pricePerHour?: number;
 
   @ApiPropertyOptional({ example: '2026-06-01' })
   @IsDateString()
@@ -31,8 +52,18 @@ export class CreateProjectDto {
   @IsOptional()
   budget?: number;
 
-  @ApiPropertyOptional({ description: 'UUID of the client' })
-  @IsString()
+  @ApiPropertyOptional({
+    type: [String],
+    description: 'UUIDs of linked accounts',
+  })
+  @IsArray()
+  @IsString({ each: true })
   @IsOptional()
-  clientId?: string;
+  accountIds?: string[];
+
+  @ApiPropertyOptional({ type: [String] })
+  @IsArray()
+  @IsString({ each: true })
+  @IsOptional()
+  taskerIds?: string[];
 }

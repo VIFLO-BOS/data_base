@@ -14,8 +14,10 @@ import * as jwt from 'jsonwebtoken';
 import { UserEntity } from '../users/entities/user.entity';
 import { RoleEntity } from '../roles/entities/role.entity';
 import { SessionEntity } from './entities/session.entity';
+import { ProfileEntity } from '../profiles/entities/profile.entity';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
+import { OAuthLoginDto } from './dto/oauth-login.dto';
 import {
   hashPassword,
   comparePassword,
@@ -28,6 +30,8 @@ export class AuthService {
     @InjectRepository(RoleEntity) private roleRepo: Repository<RoleEntity>,
     @InjectRepository(SessionEntity)
     private sessionRepo: Repository<SessionEntity>,
+    @InjectRepository(ProfileEntity)
+    private profileRepo: Repository<ProfileEntity>,
     private config: ConfigService,
   ) {}
 
@@ -58,11 +62,21 @@ export class AuthService {
     });
     await this.userRepo.save(user);
 
-    // 5. Assign 'admin' role
-    const adminRole = await this.roleRepo.findOne({ where: { name: 'admin' } });
+    // 4.5 Create profile
+    const profile = this.profileRepo.create({
+      userId: user.id,
+      firstName: dto.firstName,
+      lastName: dto.lastName,
+      avatarUrl: dto.profileImage,
+    });
+    await this.profileRepo.save(profile);
+    user.profile = profile;
 
-    if (!adminRole) {
-      user.roles = [adminRole];
+    // 5. Assign role
+    const userRole = await this.roleRepo.findOne({ where: { name: dto.role } });
+
+    if (userRole) {
+      user.roles = [userRole];
       await this.userRepo.save(user);
     }
 
@@ -93,6 +107,54 @@ export class AuthService {
     }
 
     // 4. Generate tokens
+    const tokens = this.generateTokens(user);
+
+    return {
+      user: this.sanitizeUser(user),
+      ...tokens,
+    };
+  }
+
+  /**
+   * OAuth Login or Registration bridge
+   */
+  async oauthLogin(dto: OAuthLoginDto) {
+    let user = await this.userRepo.findOne({ where: { email: dto.email } });
+
+    if (!user) {
+      // Register the new user
+      user = this.userRepo.create({
+        email: dto.email,
+        // Since they logged in with OAuth, they don't have a password. 
+        // We set passwordHash to null or a random string.
+        passwordHash: null,
+      });
+      await this.userRepo.save(user);
+
+      // Create profile
+      const profile = this.profileRepo.create({
+        userId: user.id,
+        firstName: dto.firstName,
+        lastName: dto.lastName,
+        avatarUrl: dto.profileImage,
+      });
+      await this.profileRepo.save(profile);
+      user.profile = profile;
+
+      // Assign role
+      const userRole = await this.roleRepo.findOne({ where: { name: dto.role } });
+      if (userRole) {
+        user.roles = [userRole];
+        await this.userRepo.save(user);
+      }
+    } else {
+      // User exists, but might have been created via OAuth without a profile?
+      // For safety, let's just make sure they aren't suspended.
+      if (user.status !== 'active') {
+        throw new UnauthorizedException('Account is suspended');
+      }
+    }
+
     const tokens = this.generateTokens(user);
 
     return {
@@ -154,7 +216,7 @@ export class AuthService {
 
   private generateTokens(user: UserEntity) {
     const secret = this.config.get<string>('jwt.secret');
-    const roleNames = user.roles.map(r => r.name) || [];
+    const roleNames = user?.roles?.map(r => r.name) || [];
 
 
    const accessToken = jwt.sign(
@@ -174,7 +236,7 @@ export class AuthService {
     const {passwordHash, ...safe} = user;
     return {
       ...safe,
-      roles: user.roles.map((r: RoleEntity) => r.name) || [],
+      roles: user?.roles?.map((r: RoleEntity) => r.name) || [],
     };
   }
 

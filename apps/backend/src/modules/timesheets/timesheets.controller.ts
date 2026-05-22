@@ -31,8 +31,9 @@ export class TimesheetsController {
     @Query('page') page?: number,
     @Query('limit') limit?: number,
     @Query('status') status?: string,
+    @Query('weekStarting') weekStarting?: string,
   ) {
-    return this.timesheetsService.findAll(page || 1, limit || 20, status);
+    return this.timesheetsService.findAll(page || 1, limit || 20, status, weekStarting);
   }
 
   @Get(':id')
@@ -67,5 +68,20 @@ export class TimesheetsController {
   @ApiOperation({ summary: 'Reject a submitted timesheet' })
   reject(@Param('id') id: string, @Request() req: any) {
     return this.timesheetsService.reject(id, req.user.id);
+  }
+
+  @Patch(':id/entries')
+  @Roles('admin', 'super_admin')
+  @ApiOperation({ summary: 'Update a timesheet entry for a specific date' })
+  updateEntry(
+    @Param('id') id: string,
+    @Body() body: { entryDate: string; hoursWorked: number; taskDescription?: string },
+  ) {
+    return this.timesheetsService.updateEntry(
+      id,
+      body.entryDate,
+      body.hoursWorked,
+      body.taskDescription,
+    );
   }
 }

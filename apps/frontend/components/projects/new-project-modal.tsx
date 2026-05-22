@@ -3,101 +3,110 @@ import { X } from "lucide-react";
 
 interface NewProjectModalProps {
   onClose: () => void;
-  onCreate: (project: { name: string; websiteLink: string; hourlyFee: string }) => void;
+  onCreate: (project: { name: string; platformName: string; platformUrl: string; pricePerHour: number }) => void;
 }
 
 /**
  * NewProjectModal Component
- * Modal form for creating a new project with fields for name, website link, and hourly fee.
+ * Supabase-style modal form for creating a new project.
  */
 export function NewProjectModal({ onClose, onCreate }: NewProjectModalProps) {
   const [name, setName] = useState("");
-  const [websiteLink, setWebsiteLink] = useState("");
-  const [hourlyFee, setHourlyFee] = useState("");
+  const [platformName, setPlatformName] = useState("");
+  const [platformUrl, setPlatformUrl] = useState("");
+  const [pricePerHour, setPricePerHour] = useState("");
 
-  const isFormValid = name.trim() !== "" && websiteLink.trim() !== "" && hourlyFee.trim() !== "";
+  const isFormValid = name.trim() !== "" && platformName.trim() !== "" && platformUrl.trim() !== "" && pricePerHour.trim() !== "";
 
   const handleSubmit = () => {
     if (isFormValid) {
-      onCreate({ name, websiteLink, hourlyFee });
+      onCreate({ 
+        name, 
+        platformName, 
+        platformUrl, 
+        pricePerHour: parseFloat(pricePerHour) 
+      });
     }
   };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
-      <div className="w-full max-w-[500px] p-6 bg-white rounded-xl shadow-xl flex flex-col gap-6 animate-in fade-in zoom-in-95 duration-200">
-        
+      <div className="w-full max-w-[500px] bg-white rounded-lg shadow-2xl flex flex-col overflow-hidden">
         {/* Header */}
-        <div className="pb-3 border-0 border-b shadow-[0_1px_2px_0_rgba(0,0,0,0.05)] flex justify-between items-center">
-          <div className="text-stone-900 text-xl font-medium leading-6">
-            New Project
-          </div>
+        <div className="px-6 py-4 border-b border-zinc-200 flex justify-between items-center">
+          <h2 className="text-stone-900 text-lg font-semibold">New Project</h2>
           <button 
             onClick={onClose}
-            className="p-1.5 text-zinc-500 hover:text-stone-900 hover:bg-zinc-100 rounded-md transition-colors"
+            className="p-1.5 rounded-md hover:bg-zinc-100 transition-colors cursor-pointer"
           >
-            <X className="w-5 h-5" />
+            <X className="w-5 h-5 text-zinc-500" />
           </button>
         </div>
 
-        {/* Form Fields */}
-        <div className="flex flex-col gap-4">
-          <div className="flex flex-col gap-2">
-            <label className="text-stone-900 text-sm font-medium leading-6">
-              Project's Name
-            </label>
+        {/* Body */}
+        <div className="px-6 py-5 flex flex-col gap-5">
+          <div className="flex flex-col gap-1.5">
+            <label className="text-stone-700 text-sm font-medium">Project&apos;s Name</label>
             <input
               type="text"
-              placeholder="Enter Name"
+              placeholder="Enter project name"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="w-full p-3 bg-white rounded-xl border-0 shadow-sm ring-1 ring-zinc-200 focus:outline-none focus:ring-2 focus:ring-indigo-600/20 focus:border-indigo-600 text-stone-900 text-sm placeholder:text-zinc-400 transition-all"
+              className="w-full h-10 px-3 rounded-lg border border-zinc-300 bg-white text-sm text-stone-900 placeholder:text-zinc-400 outline-none focus:border-indigo-500 focus:ring-[3px] focus:ring-indigo-500/15 transition-all"
             />
           </div>
 
-          <div className="flex flex-col gap-2">
-            <label className="text-stone-900 text-sm font-medium leading-6">
-              Website link
-            </label>
+          <div className="flex flex-col gap-1.5">
+            <label className="text-stone-700 text-sm font-medium">Platform Name</label>
             <input
               type="text"
-              placeholder="Enter link"
-              value={websiteLink}
-              onChange={(e) => setWebsiteLink(e.target.value)}
-              className="w-full p-3 bg-white rounded-xl border-0 shadow-sm ring-1 ring-zinc-200 focus:outline-none focus:ring-2 focus:ring-indigo-600/20 focus:border-indigo-600 text-stone-900 text-sm placeholder:text-zinc-400 transition-all"
+              placeholder="e.g. Upwork, Fiverr"
+              value={platformName}
+              onChange={(e) => setPlatformName(e.target.value)}
+              className="w-full h-10 px-3 rounded-lg border border-zinc-300 bg-white text-sm text-stone-900 placeholder:text-zinc-400 outline-none focus:border-indigo-500 focus:ring-[3px] focus:ring-indigo-500/15 transition-all"
             />
           </div>
 
-          <div className="flex flex-col gap-2">
-            <label className="text-stone-900 text-sm font-medium leading-6">
-              Tasker's Hourly Fee
-            </label>
+          <div className="flex flex-col gap-1.5">
+            <label className="text-stone-700 text-sm font-medium">Platform URL</label>
             <input
-              type="text"
-              placeholder="Enter Fee ($)"
-              value={hourlyFee}
-              onChange={(e) => setHourlyFee(e.target.value)}
-              className="w-full p-3 bg-white rounded-xl border-0 shadow-sm ring-1 ring-zinc-200 focus:outline-none focus:ring-2 focus:ring-indigo-600/20 focus:border-indigo-600 text-stone-900 text-sm placeholder:text-zinc-400 transition-all"
+              type="url"
+              placeholder="https://"
+              value={platformUrl}
+              onChange={(e) => setPlatformUrl(e.target.value)}
+              className="w-full h-10 px-3 rounded-lg border border-zinc-300 bg-white text-sm text-stone-900 placeholder:text-zinc-400 outline-none focus:border-indigo-500 focus:ring-[3px] focus:ring-indigo-500/15 transition-all"
+            />
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <label className="text-stone-700 text-sm font-medium">Price Per Hour ($)</label>
+            <input
+              type="number"
+              min="0"
+              step="0.01"
+              placeholder="0.00"
+              value={pricePerHour}
+              onChange={(e) => setPricePerHour(e.target.value)}
+              className="w-full h-10 px-3 rounded-lg border border-zinc-300 bg-white text-sm text-stone-900 placeholder:text-zinc-400 outline-none focus:border-indigo-500 focus:ring-[3px] focus:ring-indigo-500/15 transition-all"
             />
           </div>
         </div>
 
-        {/* Submit Button */}
-        <button
-          onClick={handleSubmit}
-          disabled={!isFormValid}
-          className={`w-full px-4 py-3 rounded-lg flex justify-center items-center transition-all duration-200 ${
-            isFormValid 
-              ? "bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm" 
-              : "bg-[#9fa0ff] text-white cursor-not-allowed"
-          }`}
-        >
-          <span className="text-sm font-medium leading-6">
+        {/* Footer */}
+        <div className="px-6 py-4 border-t border-zinc-200 flex justify-end">
+          <button
+            onClick={handleSubmit}
+            disabled={!isFormValid}
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer ${
+              isFormValid 
+                ? "bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm" 
+                : "bg-zinc-100 text-zinc-400 cursor-not-allowed"
+            }`}
+          >
             Create Project
-          </span>
-        </button>
+          </button>
+        </div>
       </div>
     </div>
   );
 }
-

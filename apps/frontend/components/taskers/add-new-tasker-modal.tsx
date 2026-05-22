@@ -1,5 +1,8 @@
+'use client';
+
 import React, { useState } from 'react';
 import { X } from 'lucide-react';
+import { ProjectSearchInput } from '../projects/project-search-input';
 
 interface AddNewTaskerModalProps {
   onClose: () => void;
@@ -8,7 +11,7 @@ interface AddNewTaskerModalProps {
 
 /**
  * AddNewTaskerModal Component
- * Modal form for adding a new tasker with name, phone, email, and bank details.
+ * Supabase-style modal form for adding a new tasker.
  */
 export function AddNewTaskerModal({ onClose, onSubmit }: AddNewTaskerModalProps) {
   const [formData, setFormData] = useState({
@@ -20,7 +23,9 @@ export function AddNewTaskerModal({ onClose, onSubmit }: AddNewTaskerModalProps)
     accountNumber: '',
   });
 
-  const isFormValid = Object.values(formData).every((val) => val.trim() !== '');
+  const [selectedProjects, setSelectedProjects] = useState<{id: string; name: string}[]>([]);
+
+  const isFormValid = formData.name.trim() !== '' && formData.email.trim() !== '';
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }));
@@ -29,112 +34,126 @@ export function AddNewTaskerModal({ onClose, onSubmit }: AddNewTaskerModalProps)
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (isFormValid) {
-      onSubmit(formData);
+      onSubmit({ ...formData, projects: selectedProjects });
     }
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/30 flex justify-center items-center">
-      <div className="w-full max-w-[600px] p-8 bg-white rounded-2xl shadow-xl flex flex-col gap-6">
-        <div className="flex justify-between items-center border-0 border-b shadow-[0_1px_2px_0_rgba(0,0,0,0.05)] pb-4">
-          <h2 className="text-stone-900 text-2xl font-medium leading-6">
-            Add New Taskers
-          </h2>
+    <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex justify-center items-center p-4">
+      <div className="w-full max-w-[560px] bg-white rounded-lg shadow-2xl flex flex-col overflow-hidden">
+        {/* Header */}
+        <div className="px-6 py-4 border-b border-zinc-200 flex justify-between items-center">
+          <h2 className="text-stone-900 text-lg font-semibold">Add New Tasker</h2>
           <button
             onClick={onClose}
-            className="p-1 hover:bg-zinc-100 rounded-full transition-colors"
+            className="p-1.5 rounded-md hover:bg-zinc-100 transition-colors cursor-pointer"
           >
-            <X className="w-5 h-5 text-stone-500" />
+            <X className="w-5 h-5 text-zinc-500" />
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="flex flex-col gap-6">
-          <div className="flex gap-4">
-            <div className="flex-1 flex flex-col gap-2">
-              <label className="text-stone-900 text-sm font-medium">Tasker's Name</label>
+        {/* Body */}
+        <form onSubmit={handleSubmit} className="px-6 py-5 flex flex-col gap-5">
+          {/* Row 1: Name + Phone */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="flex flex-col gap-1.5">
+              <label className="text-stone-700 text-sm font-medium">Tasker&apos;s Name</label>
               <input
                 type="text"
                 name="name"
                 value={formData.name}
                 onChange={handleChange}
-                placeholder="Enter Name"
-                className="w-full p-3 rounded-xl border-0 shadow-sm ring-1 ring-zinc-200 outline-none focus:border-indigo-600 transition-colors placeholder:text-stone-400"
+                placeholder="Enter name"
+                className="w-full h-10 px-3 rounded-lg border border-zinc-300 bg-white text-sm text-stone-900 placeholder:text-zinc-400 outline-none focus:border-indigo-500 focus:ring-[3px] focus:ring-indigo-500/15 transition-all"
               />
             </div>
-            <div className="flex-1 flex flex-col gap-2">
-              <label className="text-stone-900 text-sm font-medium">Phone Number</label>
+            <div className="flex flex-col gap-1.5">
+              <label className="text-stone-700 text-sm font-medium">Phone Number</label>
               <input
                 type="text"
                 name="phone"
                 value={formData.phone}
                 onChange={handleChange}
-                placeholder="Enter Phone Number"
-                className="w-full p-3 rounded-xl border-0 shadow-sm ring-1 ring-zinc-200 outline-none focus:border-indigo-600 transition-colors placeholder:text-stone-400"
+                placeholder="Enter phone number"
+                className="w-full h-10 px-3 rounded-lg border border-zinc-300 bg-white text-sm text-stone-900 placeholder:text-zinc-400 outline-none focus:border-indigo-500 focus:ring-[3px] focus:ring-indigo-500/15 transition-all"
               />
             </div>
           </div>
 
-          <div className="flex flex-col gap-2 w-1/2 pr-2">
-            <label className="text-stone-900 text-sm font-medium">Email</label>
+          {/* Row 2: Email */}
+          <div className="flex flex-col gap-1.5 sm:w-1/2 sm:pr-2">
+            <label className="text-stone-700 text-sm font-medium">Email</label>
             <input
               type="email"
               name="email"
               value={formData.email}
               onChange={handleChange}
-              placeholder="Enter Email Address"
-              className="w-full p-3 rounded-xl border-0 shadow-sm ring-1 ring-zinc-200 outline-none focus:border-indigo-600 transition-colors placeholder:text-stone-400"
+              placeholder="Enter email address"
+              className="w-full h-10 px-3 rounded-lg border border-zinc-300 bg-white text-sm text-stone-900 placeholder:text-zinc-400 outline-none focus:border-indigo-500 focus:ring-[3px] focus:ring-indigo-500/15 transition-all"
             />
           </div>
 
-          <div className="flex gap-4">
-            <div className="flex-1 flex flex-col gap-2">
-              <label className="text-stone-900 text-sm font-medium">Account Holder Name</label>
+          {/* Row 3: Account Holder + Bank */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="flex flex-col gap-1.5">
+              <label className="text-stone-700 text-sm font-medium">Account Holder Name</label>
               <input
                 type="text"
                 name="accountName"
                 value={formData.accountName}
                 onChange={handleChange}
-                placeholder="Enter Name"
-                className="w-full p-3 rounded-xl border-0 shadow-sm ring-1 ring-zinc-200 outline-none focus:border-indigo-600 transition-colors placeholder:text-stone-400"
+                placeholder="Enter name"
+                className="w-full h-10 px-3 rounded-lg border border-zinc-300 bg-white text-sm text-stone-900 placeholder:text-zinc-400 outline-none focus:border-indigo-500 focus:ring-[3px] focus:ring-indigo-500/15 transition-all"
               />
             </div>
-            <div className="flex-1 flex flex-col gap-2">
-              <label className="text-stone-900 text-sm font-medium">Bank</label>
+            <div className="flex flex-col gap-1.5">
+              <label className="text-stone-700 text-sm font-medium">Bank</label>
               <input
                 type="text"
                 name="bank"
                 value={formData.bank}
                 onChange={handleChange}
-                placeholder="Enter Name of Bank"
-                className="w-full p-3 rounded-xl border-0 shadow-sm ring-1 ring-zinc-200 outline-none focus:border-indigo-600 transition-colors placeholder:text-stone-400"
+                placeholder="Enter bank name"
+                className="w-full h-10 px-3 rounded-lg border border-zinc-300 bg-white text-sm text-stone-900 placeholder:text-zinc-400 outline-none focus:border-indigo-500 focus:ring-[3px] focus:ring-indigo-500/15 transition-all"
               />
             </div>
           </div>
 
-          <div className="flex flex-col gap-2 w-1/2 pr-2">
-            <label className="text-stone-900 text-sm font-medium">Account Number</label>
+          {/* Row 4: Account Number */}
+          <div className="flex flex-col gap-1.5 sm:w-1/2 sm:pr-2">
+            <label className="text-stone-700 text-sm font-medium">Account Number</label>
             <input
               type="text"
               name="accountNumber"
               value={formData.accountNumber}
               onChange={handleChange}
-              placeholder="Enter Account Number"
-              className="w-full p-3 rounded-xl border-0 shadow-sm ring-1 ring-zinc-200 outline-none focus:border-indigo-600 transition-colors placeholder:text-stone-400"
+              placeholder="Enter account number"
+              className="w-full h-10 px-3 rounded-lg border border-zinc-300 bg-white text-sm text-stone-900 placeholder:text-zinc-400 outline-none focus:border-indigo-500 focus:ring-[3px] focus:ring-indigo-500/15 transition-all"
             />
           </div>
 
-          <button
-            type="submit"
-            disabled={!isFormValid}
-            className={`w-full py-3 rounded-xl text-white font-medium transition-colors mt-2 ${
-              isFormValid ? 'bg-indigo-600 hover:bg-indigo-700' : 'bg-indigo-600/50 cursor-not-allowed'
-            }`}
-          >
-            Add Tasker
-          </button>
+          {/* Row 5: Assign Projects */}
+          <ProjectSearchInput 
+            selectedProjects={selectedProjects}
+            onChange={setSelectedProjects}
+          />
+
+          {/* Footer */}
+          <div className="pt-4 border-t border-zinc-200 flex justify-end">
+            <button
+              type="submit"
+              disabled={!isFormValid}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer ${
+                isFormValid
+                  ? 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm'
+                  : 'bg-zinc-100 text-zinc-400 cursor-not-allowed'
+              }`}
+            >
+              Add Tasker
+            </button>
+          </div>
         </form>
       </div>
     </div>
   );
 }
-

@@ -5,9 +5,10 @@
 
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, In } from 'typeorm';
 import { ProjectEntity } from './entities/project.entity';
 import { TaskerEntity } from '../taskers/entities/tasker.entity';
+import { AccountEntity } from '../accounts/entities/account.entity';
 import { CreateProjectDto } from './dto/create-project.dto';
 import { UpdateProjectDto } from './dto/update-project.dto';
 
@@ -18,13 +19,15 @@ export class ProjectsService {
     private projectsRepo: Repository<ProjectEntity>,
     @InjectRepository(TaskerEntity)
     private taskersRepo: Repository<TaskerEntity>,
+    @InjectRepository(AccountEntity)
+    private accountsRepo: Repository<AccountEntity>,
   ) {}
 
   async findAll(page = 1, limit = 20, status?: string) {
     const qb = this.projectsRepo
       .createQueryBuilder('project')
       .leftJoinAndSelect('project.taskers', 'tasker')
-      .leftJoinAndSelect('project.client', 'client')
+      .leftJoinAndSelect('project.accounts', 'account')
       .orderBy('project.createdAt', 'DESC')
       .skip((page - 1) * limit)
       .take(limit);
@@ -41,20 +44,34 @@ export class ProjectsService {
   async findById(id: string) {
     const project = await this.projectsRepo.findOne({
       where: { id },
-      relations: ['taskers', 'client', 'creator'],
+      relations: ['taskers', 'accounts', 'creator'],
     });
     if (!project) throw new NotFoundException('Project not found');
     return project;
   }
 
   async create(dto: CreateProjectDto, userId: string) {
-    const project = this.projectsRepo.create({ ...dto, createdBy: userId });
+    const { taskerIds, accountIds, ...rest } = dto;
+    const project = this.projectsRepo.create({ ...rest, createdBy: userId });
+    if (taskerIds && taskerIds.length > 0) {
+      project.taskers = await this.taskersRepo.findBy({ id: In(taskerIds) });
+    }
+    if (accountIds && accountIds.length > 0) {
+      project.accounts = await this.accountsRepo.findBy({ id: In(accountIds) });
+    }
     return this.projectsRepo.save(project);
   }
 
   async update(id: string, dto: UpdateProjectDto) {
+    const { taskerIds, accountIds, ...rest } = dto as any;
     const project = await this.findById(id);
-    Object.assign(project, dto);
+    Object.assign(project, rest);
+    if (taskerIds) {
+      project.taskers = await this.taskersRepo.findBy({ id: In(taskerIds) });
+    }
+    if (accountIds) {
+      project.accounts = await this.accountsRepo.findBy({ id: In(accountIds) });
+    }
     return this.projectsRepo.save(project);
   }
 
@@ -75,6 +92,24 @@ export class ProjectsService {
   async removeTasker(projectId: string, taskerId: string) {
     const project = await this.findById(projectId);
     project.taskers = (project.taskers || []).filter((t) => t.id !== taskerId);
+    return this.projectsRepo.save(project);
+  }
+
+  async assignAccount(projectId: string, accountId: string) {
+    const project = await this.findById(projectId);
+    const account = await this.accountsRepo.findOne({ where: { id: accountId } });
+    if (!account) throw new NotFoundException('Account not found');
+    
+    // Prevent duplicates
+    if (!project.accounts?.some(a => a.id === account.id)) {
+      project.accounts = [...(project.accounts || []), account];
+    }
+    return this.projectsRepo.save(project);
+  }
+
+  async removeAccount(projectId: string, accountId: string) {
+    const project = await this.findById(projectId);
+    project.accounts = (project.accounts || []).filter((a) => a.id !== accountId);
     return this.projectsRepo.save(project);
   }
 }

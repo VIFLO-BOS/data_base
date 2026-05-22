@@ -1,53 +1,46 @@
-import React from 'react';
+'use client';
+
+import React, { useState } from 'react';
+import { Calendar, ChevronDown } from 'lucide-react';
 
 interface TimelinePeriodFilterProps {
  activePeriod: 'Day' | 'Week' | 'Month' | 'Year';
+ onPeriodChange?: (period: 'Day' | 'Week' | 'Month' | 'Year') => void;
 }
 
 /**
  * TimelinePeriodFilter Component
  * Day/Week/Month/Year filter tabs + Date picker button.
  */
-export function TimelinePeriodFilter({ activePeriod }: TimelinePeriodFilterProps) {
- const periods = ['Day', 'Week', 'Month', 'Year'];
+export function TimelinePeriodFilter({ activePeriod, onPeriodChange }: TimelinePeriodFilterProps) {
+ const periods: ('Day' | 'Week' | 'Month' | 'Year')[] = ['Day', 'Week', 'Month', 'Year'];
+ const [selectedDate] = useState('Select Date');
 
  return (
- <div className="self-stretch inline-flex justify-start items-start">
- <div className="flex justify-start items-center gap-2.5">
- <div className="p-0.5 bg-neutral-50 rounded-lg shadow-sm border-0 flex justify-center items-center gap-1">
- {periods.map((period) => (
- <div
- key={period}
- className={`px-3 py-1.5 inline-flex flex-col justify-start items-start gap-2.5 ${
- period === activePeriod
- ? 'bg-white rounded shadow-[-6px_2px_12px_0px_rgba(0,0,0,0.04)]'
- : 'rounded'
- }${period === 'Year' ? ' rounded-md' : ''}`}
- >
  <div className="self-stretch inline-flex justify-start items-center gap-2.5">
- <div className="justify-start text-stone-900 text-xs font-medium leading-4">
- {period}
- </div>
- </div>
- </div>
+ {/* Period filter tabs */}
+ <div className="p-0.5 bg-neutral-50 rounded-lg outline outline-1 outline-offset-[-1px] outline-zinc-200 flex justify-center items-center gap-1 shadow-sm">
+ {periods.map((period) => (
+  <button
+  key={period}
+  onClick={() => onPeriodChange?.(period)}
+  className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all duration-200 cursor-pointer ${
+   period === activePeriod
+   ? 'bg-white shadow-sm ring-1 ring-zinc-200 text-stone-900'
+   : 'hover:bg-zinc-200/50 text-zinc-500'
+  }`}
+  >
+  {period}
+  </button>
  ))}
  </div>
- <div className="px-3 py-1 bg-gray-100 rounded-lg flex justify-start items-center gap-1">
- <div className="flex justify-start items-center gap-1">
- <div className="w-5 h-5 relative overflow-hidden">
- <div className="w-2.5 h-[5px] left-[5px] top-[10px] absolute bg-stone-950" />
- <div className="w-4 h-4 left-[1.04px] top-[1.46px] absolute bg-stone-950" />
- </div>
- <div className="justify-start text-stone-950 text-sm font-medium font-['Excon']">
- Date{' '}
- </div>
- </div>
- <div className="w-6 h-6 relative overflow-hidden">
- <div className="w-2 h-1 left-[8px] top-[11px] absolute outline outline-[1.50px] outline-offset-[-0.75px] outline-neutral-700" />
- </div>
- </div>
- </div>
+
+ {/* Date picker button */}
+ <button className="px-3 py-1.5 rounded-lg bg-white border-0 shadow-sm ring-1 ring-zinc-200 flex items-center gap-2 hover:bg-zinc-50 transition-colors cursor-pointer">
+ <Calendar className="w-4 h-4 text-zinc-500" />
+ <span className="text-sm font-medium text-stone-700">{selectedDate}</span>
+ <ChevronDown className="w-4 h-4 text-zinc-400" />
+ </button>
  </div>
  );
 }
-

@@ -1,53 +1,250 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { TimelineHeader } from '../../../../components/timesheets/timeline-header';
-import { TimelinePeriodFilter } from '../../../../components/timesheets/timeline-period-filter';
+import { OverviewFilter } from '../../../../components/dashboard/overview-filter';
 import { TimelineSearchFilter } from '../../../../components/timesheets/timeline-search-filter';
 import { TimesheetTable } from '../../../../components/timesheets/timesheet-table';
 import { Pagination } from '../../../../components/accounts/pagination';
 import { InputTimeModal } from '../../../../components/timesheets/input-time-modal';
 import { PaymentDetailsModal } from '../../../../components/timesheets/payment-details-modal';
-import { useDashboardStore } from '../../../../store/dashboardStore';
+import { getTimesheets, updateTimesheetEntry } from '../../../../services/timesheet-service';
+import { Loader2 } from 'lucide-react';
 
-const dayColumns = [
-  { label: 'Mon 2/26' },
-  { label: 'Tue 3/26' },
-  { label: 'Wed 4/26' },
-  { label: 'Thur 5/26' },
-  { label: 'Fri 6/26' },
-  { label: 'Sat 7/26' },
-  { label: 'Sun 8/26' },
-];
+/**
+ * Compute the Monday-anchored 7-day columns for a given date string (or today).
+ * Returns both the column labels and the ISO date string for each day.
+ */
+function getWeekColumns(dateStr?: string) {
+  const base = dateStr ? new Date(dateStr) : new Date();
+  // Shift to Monday (Sunday=0 → -6, Monday=1 → 0, ..., Saturday=6 → -5)
+  const dayOfWeek = base.getDay();
+  const diffToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+  const monday = new Date(base);
+  monday.setDate(base.getDate() + diffToMonday);
+
+  const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+  const columns = dayNames.map((name, i) => {
+    const d = new Date(monday);
+    d.setDate(monday.getDate() + i);
+    const month = d.getMonth() + 1;
+    const day = d.getDate();
+    const isoDate = d.toISOString().split('T')[0];
+    return { label: `${name} ${month}/${day}`, date: isoDate };
+  });
+
+  const weekStarting = monday.toISOString().split('T')[0];
+  return { columns, weekStarting };
+}
+
+/**
+ * Compute the columns based on the active period.
+ */
+function getColumns(dateStr?: string, period: 'Day' | 'Week' | 'Month' | 'Year' | 'All Time' = 'Week') {
+  const base = dateStr ? new Date(dateStr) : new Date();
+
+  if (period === 'Day') {
+    const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    const isoDate = base.toISOString().split('T')[0];
+    return {
+      columns: [{ label: `${dayNames[base.getDay()]} ${base.getMonth() + 1}/${base.getDate()}`, date: isoDate }],
+      queryWeek: undefined,
+    };
+  }
+
+  if (period === 'Month') {
+    const year = base.getFullYear();
+    const month = base.getMonth();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const columns = [];
+    const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    for (let i = 1; i <= daysInMonth; i++) {
+      const d = new Date(year, month, i);
+      const isoDate = d.toISOString().split('T')[0];
+      columns.push({ label: `${dayNames[d.getDay()]} ${month + 1}/${i}`, date: isoDate });
+    }
+    return { columns, queryWeek: undefined };
+  }
+
+  if (period === 'Year') {
+    const year = base.getFullYear();
+    const columns = [];
+    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    for (let i = 0; i < 12; i++) {
+      // Use YYYY-MM prefix to match
+      const prefix = `${year}-${String(i + 1).padStart(2, '0')}`;
+      columns.push({ label: monthNames[i], date: prefix, isMonth: true });
+    }
+    return { columns, queryWeek: undefined };
+  }
+
+  if (period === 'All Time') {
+    const year = base.getFullYear();
+    const columns = [
+      { label: String(year - 4), date: String(year - 4), isYear: true },
+      { label: String(year - 3), date: String(year - 3), isYear: true },
+      { label: String(year - 2), date: String(year - 2), isYear: true },
+      { label: String(year - 1), date: String(year - 1), isYear: true },
+      { label: String(year), date: String(year), isYear: true },
+      { label: String(year + 1), date: String(year + 1), isYear: true },
+    ];
+    return { columns, queryWeek: undefined };
+  }
+
+  // Week
+  const dayOfWeek = base.getDay();
+  const diffToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+  const monday = new Date(base);
+  monday.setDate(base.getDate() + diffToMonday);
+
+  const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+  const columns = dayNames.map((name, i) => {
+    const d = new Date(monday);
+    d.setDate(monday.getDate() + i);
+    const month = d.getMonth() + 1;
+    const day = d.getDate();
+    const isoDate = d.toISOString().split('T')[0];
+    return { label: `${name} ${month}/${day}`, date: isoDate };
+  });
+
+  const weekStarting = monday.toISOString().split('T')[0];
+  return { columns, queryWeek: weekStarting };
+}
 
 /**
  * Admin Timesheets Page
- * Weekly timesheet view with tasker/account rows, day columns, and time input.
  */
 export default function TimesheetsPage() {
-  const { timesheets, updateTimesheet } = useDashboardStore();
-  
+  const [timesheets, setTimesheets] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Period filter state
+  const [activePeriod, setActivePeriod] = useState<'Day' | 'Week' | 'Month' | 'Year' | 'All Time'>('All Time');
+  const [selectedDate, setSelectedDate] = useState<string | undefined>(undefined);
+
+  // Derive dynamic columns from selected date
+  const { columns: dayColumns, queryWeek } = getColumns(selectedDate, activePeriod);
+
   // Time Input Modal State
   const [isTimeModalOpen, setIsTimeModalOpen] = useState(false);
-  const [editingCell, setEditingCell] = useState<{ rowId: string; dayIndex: number; dateLabel: string; initialValue: string } | null>(null);
+  const [editingCell, setEditingCell] = useState<{ rowId: string; dayIndex: number; dateLabel: string; date: string; initialValue: string } | null>(null);
+
+  const fetchTimesheets = useCallback(async (week?: string, period: string = 'Week') => {
+    setIsLoading(true);
+    try {
+      const response = await getTimesheets(1, 100, undefined, week);
+      const timesheetsData = (response as any).data?.data || [];
+      const cols = getColumns(selectedDate, period as any).columns;
+
+      const mapped = timesheetsData.map((t: any) => {
+        const days: string[] = cols.map(() => '--:--');
+
+        if (t.entries && t.entries.length > 0) {
+          if (period === 'Year') {
+            // Aggregate by month prefix
+            const monthTotals: Record<string, number> = {};
+            t.entries.forEach((entry: any) => {
+              const entryDateStr = new Date(entry.entryDate).toISOString().split('T')[0];
+              const prefix = entryDateStr.substring(0, 7); // YYYY-MM
+              monthTotals[prefix] = (monthTotals[prefix] || 0) + Number(entry.hoursWorked || 0);
+            });
+            cols.forEach((col, i) => {
+              const total = monthTotals[col.date] || 0;
+              if (total > 0) {
+                const h = Math.floor(total);
+                const m = Math.round((total - h) * 60);
+                days[i] = `${h}h:${String(m).padStart(2, '0')}m`;
+              }
+            });
+          } else if (period === 'All Time') {
+            const yearTotals: Record<string, number> = {};
+            t.entries.forEach((entry: any) => {
+              const entryDateStr = new Date(entry.entryDate).toISOString().split('T')[0];
+              const yearStr = entryDateStr.substring(0, 4); // YYYY
+              yearTotals[yearStr] = (yearTotals[yearStr] || 0) + Number(entry.hoursWorked || 0);
+            });
+            cols.forEach((col, i) => {
+              const total = yearTotals[col.date] || 0;
+              if (total > 0) {
+                const h = Math.floor(total);
+                const m = Math.round((total - h) * 60);
+                days[i] = `${h}h:${String(m).padStart(2, '0')}m`;
+              }
+            });
+          } else {
+            t.entries.forEach((entry: any) => {
+              const entryDateStr = new Date(entry.entryDate).toISOString().split('T')[0];
+              const colIndex = cols.findIndex((col) => col.date === entryDateStr);
+              if (colIndex >= 0) {
+                const h = Math.floor(Number(entry.hoursWorked));
+                const m = Math.round((Number(entry.hoursWorked) - h) * 60);
+                days[colIndex] = `${h}h:${String(m).padStart(2, '0')}m`;
+              }
+            });
+          }
+        }
+
+        const taskerName = t.tasker
+          ? `${t.tasker.firstName || ''} ${t.tasker.lastName || ''}`.trim() || t.tasker.user?.email || 'Unknown Tasker'
+          : t.taskerName || 'Unknown Tasker';
+
+        const totalHoursNum = Number(t.totalHours || 0);
+        const th = Math.floor(totalHoursNum);
+        const tm = Math.round((totalHoursNum - th) * 60);
+        const totalHoursLabel = tm > 0 ? `${th}h:${String(tm).padStart(2, '0')}m` : `${th}h:00m`;
+
+        return {
+          id: t.id,
+          tasker: taskerName,
+          account: t.project?.name || t.accountName || 'Unassigned',
+          days,
+          totalHours: totalHoursLabel,
+          totalAmount: t.totalAmount || '$0.00',
+          status: t.status === 'approved' ? 'Approved' : t.status === 'submitted' ? 'Submitted' : 'Pending',
+          weekStarting: t.weekStarting,
+        };
+      });
+
+      // For week, we keep all because week queries the exact timesheet
+      const filteredMapped = period === 'Week' ? mapped : mapped.filter((r: any) => r.days.some((d: string) => d !== '--:--'));
+
+      setTimesheets(filteredMapped);
+    } catch (error) {
+      console.error('Failed to fetch timesheets', error);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [selectedDate]);
+
+  // Fetch on initial load and when the selected period/date changes
+  React.useEffect(() => {
+    fetchTimesheets(queryWeek, activePeriod);
+  }, [queryWeek, activePeriod, fetchTimesheets]);
 
   // Payment Details Modal State
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [selectedPaymentRow, setSelectedPaymentRow] = useState<any>(null);
 
   const handleTimeCellClick = (row: any, dayIndex: number) => {
-    setEditingCell({ 
-      rowId: row.id, 
-      dayIndex, 
+    setEditingCell({
+      rowId: row.id,
+      dayIndex,
       dateLabel: dayColumns[dayIndex].label,
-      initialValue: row.days[dayIndex]
+      date: dayColumns[dayIndex].date,
+      initialValue: row.days[dayIndex],
     });
     setIsTimeModalOpen(true);
   };
 
-  const handleTimeSubmit = (hours: string, minutes: string) => {
+  const handleTimeSubmit = async (hours: string, minutes: string) => {
     if (editingCell) {
-      updateTimesheet(editingCell.rowId, editingCell.dayIndex, `${hours}h:${minutes.padStart(2, '0')}m`);
+      try {
+        const totalHours = Number(hours) + Number(minutes) / 60;
+        await updateTimesheetEntry(editingCell.rowId, editingCell.date, totalHours);
+        await fetchTimesheets(queryWeek, activePeriod);
+      } catch (error) {
+        console.error('Failed to update timesheet entry', error);
+      }
     }
     setIsTimeModalOpen(false);
   };
@@ -72,28 +269,45 @@ export default function TimesheetsPage() {
       {/* Timeline Content */}
       <div className="self-stretch flex flex-col justify-start items-start gap-2.5">
         <div className="self-stretch flex flex-col justify-start items-start gap-6">
-          <div className="self-stretch p-6 bg-white rounded-xl shadow-md border-0 flex flex-col justify-start items-start gap-4">
+          <div className="self-stretch p-3 sm:p-6 bg-white rounded-xl shadow-md border-0 flex flex-col justify-start items-start gap-4">
             {/* Header */}
             <TimelineHeader />
 
             {/* Period Filter (Day/Week/Month/Year + Date) */}
-            <TimelinePeriodFilter activePeriod="Day" />
+            <OverviewFilter
+              activeFilter={activePeriod}
+              onFilterChange={(f) => setActivePeriod(f)}
+              selectedDate={selectedDate}
+              onDateChange={(d) => setSelectedDate(d)}
+            />
 
             {/* Search & Project Filter */}
             <TimelineSearchFilter projectFilter="Ventree" />
 
             {/* Timesheet Table */}
-            <TimesheetTable 
-              rows={timesheets} 
-              dayColumns={dayColumns} 
-              onTimeCellClick={(row, dayIndex) => {
-                handleTimeCellClick(row, dayIndex);
-              }}
-              onViewPaymentDetails={handleViewPaymentDetails}
-            />
+            {isLoading ? (
+              <div className="w-full flex justify-center py-12">
+                <Loader2 className="w-8 h-8 text-indigo-500 animate-spin" />
+              </div>
+            ) : timesheets.length === 0 ? (
+              <div className="w-full py-12 text-center text-sm text-zinc-500">
+                No timesheets found for the selected period.
+              </div>
+            ) : (
+              <>
+                <TimesheetTable
+                  rows={timesheets}
+                  dayColumns={dayColumns}
+                  onTimeCellClick={(row, dayIndex) => {
+                    handleTimeCellClick(row, dayIndex);
+                  }}
+                  onViewPaymentDetails={handleViewPaymentDetails}
+                />
 
-            {/* Pagination */}
-            <Pagination currentPage={1} totalPages={Math.ceil(timesheets.length / 9) || 1} totalItems={timesheets.length} itemsPerPage={9} />
+                {/* Pagination */}
+                <Pagination currentPage={1} totalPages={Math.ceil(timesheets.length / 9) || 1} totalItems={timesheets.length} itemsPerPage={9} />
+              </>
+            )}
           </div>
         </div>
       </div>
@@ -121,3 +335,7 @@ export default function TimesheetsPage() {
     </div>
   );
 }
+
+
+
+

@@ -23,77 +23,82 @@ export class DashboardAnalyticsService {
     private timesheetsRepo: Repository<TimesheetEntity>,
     @InjectRepository(AccountEntity)
     private accountsRepo: Repository<AccountEntity>,
-  ) {}
+  ) { }
 
   async getDashboardSummary(filter: AnalyticsFilterDto) {
     const { startDate, endDate } = this.getDateRange(filter);
 
-    // Common WHERE clause for date filtering
-    const dateCondition =
-      startDate && endDate
-        ? { createdAt: Between(startDate, endDate) }
-        : startDate
-          ? { createdAt: MoreThanOrEqual(startDate) }
-          : {};
-
-    // 1. Total Active Projects
-    const activeProjects = await this.projectsRepo.count({
-      where: { ...dateCondition, status: 'active' },
-    });
+    // 1. Total Projects
+    const totalProjects = await this.projectsRepo.count();
 
     // 2. Total Taskers
-    const totalTaskers = await this.taskersRepo.count({
-      where: dateCondition,
-    });
+    const totalTaskers = await this.taskersRepo.count();
 
-    // 3. Pending Timesheets
-    const pendingTimesheets = await this.timesheetsRepo.count({
-      where: { ...dateCondition, status: 'submitted' }, // 'submitted' means waiting for approval
-    });
+    // 3. Total Hours (Sum of timesheet totalHours) — uses QueryBuilder syntax
+    const hoursQb = this.timesheetsRepo
+      .createQueryBuilder('timesheet')
+      .select('SUM(timesheet.total_hours)', 'sum');
+
+    if (startDate && endDate) {
+      hoursQb.where('timesheet.created_at >= :startDate AND timesheet.created_at <= :endDate', {
+        startDate: startDate.toISOString(),
+        endDate: endDate.toISOString(),
+      });
+    } else if (startDate) {
+      hoursQb.where('timesheet.created_at >= :startDate', {
+        startDate: startDate.toISOString(),
+      });
+    }
+
+    const hoursResult = await hoursQb.getRawOne();
+    const totalHours = hoursResult?.sum ? parseFloat(hoursResult.sum) : 0;
 
     // 4. Total Accounts
-    const totalAccounts = await this.accountsRepo.count({
-      where: dateCondition,
-    });
+    const totalAccounts = await this.accountsRepo.count();
 
     return {
-      summary: {
-        activeProjects,
-        totalTaskers,
-        pendingTimesheets,
-        totalAccounts,
-      },
-      // You can add more complex aggregations here later (e.g., charts data)
+      totalProjects,
+      projectsTrend: 0,
+      activeAccounts: totalAccounts,
+      accountsTrend: 0,
+      activeTaskers: totalTaskers,
+      taskersTrend: 0,
+      totalHoursToday: totalHours,
+      hoursTrend: 0,
     };
   }
 
   private getDateRange(filter: AnalyticsFilterDto) {
-    const now = new Date();
+    // If a specific date is provided, use it as the base date, otherwise use now.
+    const baseDate = filter.date ? new Date(filter.date) : new Date();
+
     let startDate: Date;
-    let endDate: Date = now;
+    // Set endDate to the end of the selected base date
+    let endDate: Date = new Date(baseDate);
+    endDate.setHours(23, 59, 59, 999);
 
-    if (filter.startDate && filter.endDate) {
-      return {
-        startDate: new Date(filter.startDate),
-        endDate: new Date(filter.endDate),
-      };
-    }
-
-    switch (filter.range) {
+    switch (filter.period?.toLowerCase()) {
       case 'day':
-        startDate = new Date(now.setHours(0, 0, 0, 0));
+        startDate = new Date(baseDate);
+        startDate.setHours(0, 0, 0, 0);
         break;
       case 'week':
-        startDate = new Date(now.setDate(now.getDate() - 7));
+        startDate = new Date(baseDate);
+        startDate.setDate(startDate.getDate() - 7);
+        startDate.setHours(0, 0, 0, 0);
         break;
       case 'month':
-        startDate = new Date(now.setMonth(now.getMonth() - 1));
+        startDate = new Date(baseDate);
+        startDate.setMonth(startDate.getMonth() - 1);
+        startDate.setHours(0, 0, 0, 0);
         break;
       case 'year':
-        startDate = new Date(now.setFullYear(now.getFullYear() - 1));
+        startDate = new Date(baseDate);
+        startDate.setFullYear(startDate.getFullYear() - 1);
+        startDate.setHours(0, 0, 0, 0);
         break;
       default:
-        // No filter
+        // No filter or 'all time'
         return { startDate: null, endDate: null };
     }
 

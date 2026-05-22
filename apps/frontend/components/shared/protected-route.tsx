@@ -1,8 +1,6 @@
 /**
  * ProtectedRoute Component
- * TODO: Implement authentication/authorization logic.
- * Currently passes children through as a placeholder.
+ * Re-exports the real ProtectedRoute from components/auth.
+ * This file exists for backward compatibility with the dashboard layout import path.
  */
-export function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  return <>{children}</>;
-}
+export { ProtectedRoute } from '../auth/protected-route';

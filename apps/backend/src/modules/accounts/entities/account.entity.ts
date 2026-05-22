@@ -10,9 +10,11 @@ import {
   CreateDateColumn,
   UpdateDateColumn,
   ManyToOne,
+  ManyToMany,
   JoinColumn,
 } from 'typeorm';
 import { UserEntity } from '../../users/entities/user.entity';
+import { ProjectEntity } from '../../projects/entities/project.entity';
 
 @Entity('accounts')
 export class AccountEntity {
@@ -21,6 +23,12 @@ export class AccountEntity {
 
   @Column()
   name: string;
+
+  @Column({ nullable: true })
+  email: string;
+
+  @Column({ default: 'Active' })
+  status: string;
 
   @Column({ nullable: true })
   type: string;
@@ -40,4 +48,9 @@ export class AccountEntity {
   @ManyToOne(() => UserEntity, { nullable: true })
   @JoinColumn({ name: 'owner_id' })
   owner: UserEntity;
+
+  @ManyToMany(() => ProjectEntity, (project) => project.accounts)
+  projects: ProjectEntity[];
+
+  totalHours?: number;
 }

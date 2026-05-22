@@ -4,8 +4,10 @@ import React, { useState, useRef, useEffect } from 'react';
 import { ChevronRight, MoreVertical, Plus } from 'lucide-react';
 
 interface ProjectData {
+  id?: string;
   name: string;
   assignedTaskers: string;
+  taskers?: { id: string; name: string; status?: string }[];
   totalHours: number;
 }
 
@@ -14,6 +16,7 @@ interface AccountDetailData {
   isActive: boolean;
   dateCreated: string;
   projects: ProjectData[];
+  allTaskers: any[];
   totalTaskers: number;
   totalHoursLogged: number;
 }
@@ -26,12 +29,12 @@ interface AccountDetailProps {
   onAddProject: () => void;
   onEditProject: (project: ProjectData) => void;
   onRemoveProject: (project: ProjectData) => void;
+  onToggleTaskerStatus?: (taskerId: string, newStatus: string) => void;
 }
 
 /**
  * AccountDetail Component
- * Shows the detailed view of a single account with breadcrumb,
- * stats cards, and projects table.
+ * Combined projects + taskers view with status toggle buttons.
  */
 export function AccountDetail({
   account,
@@ -41,6 +44,7 @@ export function AccountDetail({
   onAddProject,
   onEditProject,
   onRemoveProject,
+  onToggleTaskerStatus,
 }: AccountDetailProps) {
   const [headerMenuOpen, setHeaderMenuOpen] = useState(false);
   const [openProjectMenu, setOpenProjectMenu] = useState<number | null>(null);
@@ -146,12 +150,12 @@ export function AccountDetail({
         </div>
       </div>
 
-      {/* Projects Section */}
+      {/* Combined Projects & Taskers Table */}
       <div className="self-stretch p-6 bg-white rounded-xl border-0 shadow-sm/80 flex flex-col gap-6">
-        {/* Projects Header */}
+        {/* Header */}
         <div className="flex justify-between items-center">
           <div className="flex items-center gap-2">
-            <span className="text-stone-900 text-base font-medium leading-6">Projects</span>
+            <span className="text-stone-900 text-base font-medium leading-6">Projects & Taskers</span>
             <div className="h-6 px-2 py-1 bg-gray-100 rounded-md flex justify-center items-center">
               <span className="text-stone-900 text-xs font-medium leading-4">
                 {account.projects.length}
@@ -167,70 +171,125 @@ export function AccountDetail({
           </button>
         </div>
 
-        {/* Projects Table */}
+        {/* Table */}
         <div className="flex flex-col gap-0">
           {/* Column Headers */}
-          <div className="pb-3 border-0 border-b shadow-[0_1px_2px_0_rgba(0,0,0,0.05)] flex items-center">
-            <div className="flex-1 text-zinc-500 text-sm font-medium leading-6">Project Name</div>
-            <div className="flex-1 text-zinc-500 text-sm font-medium leading-6 hidden sm:block">
+          <div className="pb-3 border-0 border-b shadow-[0_1px_2px_0_rgba(0,0,0,0.05)] flex items-center gap-4">
+            <div className="flex-[1.5] text-zinc-500 text-sm font-medium leading-6">Project Name</div>
+            <div className="flex-[2] text-zinc-500 text-sm font-medium leading-6 hidden sm:block">
               Assigned Tasker(s)
             </div>
-            <div className="flex-1 text-zinc-500 text-sm font-medium leading-6 hidden sm:block">
-              Total Hours
+            <div className="w-[100px] shrink-0 text-zinc-500 text-sm font-medium leading-6 hidden sm:block text-center">
+              Status
             </div>
-            <div className="w-8" />
+            <div className="w-[80px] shrink-0 text-zinc-500 text-sm font-medium leading-6 hidden sm:block text-center">
+              Hours
+            </div>
+            <div className="w-8 shrink-0" />
           </div>
 
-          {/* Project Rows */}
-          {account.projects.map((project, index) => (
-            <div key={index} className="py-3 border-0 border-b shadow-[0_1px_2px_0_rgba(0,0,0,0.05)] flex items-center">
-              <div className="flex-1 text-stone-900 text-sm font-medium leading-6">
-                {project.name}
-              </div>
-              <div className="flex-1 text-stone-900 text-sm font-medium leading-6 hidden sm:block">
-                {project.assignedTaskers}
-              </div>
-              <div className="flex-1 text-stone-900 text-sm font-medium leading-6 hidden sm:block">
-                {project.totalHours}
-              </div>
-              <div
-                className="relative w-8 flex justify-center"
-                ref={openProjectMenu === index ? projectMenuRef : undefined}
-              >
-                <button
-                  onClick={() => setOpenProjectMenu(openProjectMenu === index ? null : index)}
-                  className="p-1 rounded hover:bg-zinc-100 transition-colors cursor-pointer"
+          {/* Project Rows — each project with its taskers listed vertically */}
+          {account.projects.map((project, index) => {
+            const taskersList = project.taskers || [];
+
+            return (
+              <div key={index} className="py-4 border-0 border-b shadow-[0_1px_2px_0_rgba(0,0,0,0.05)] flex items-start gap-4">
+                {/* Project Name */}
+                <div className="flex-[1.5] text-stone-900 text-sm font-semibold leading-6 pt-1">
+                  {project.name}
+                </div>
+
+                {/* Taskers — stacked vertically in block format */}
+                <div className="flex-[2] hidden sm:flex flex-col gap-2">
+                  {taskersList.length > 0 ? (
+                    taskersList.map((t, ti) => (
+                      <div key={ti} className="flex items-center gap-2.5 h-8">
+                        <div className="w-6 h-6 rounded-full bg-indigo-50 border border-indigo-100 text-indigo-600 flex items-center justify-center font-bold text-[10px] shrink-0 shadow-sm">
+                          {t.name?.charAt(0) || 'T'}
+                        </div>
+                        <span className="text-stone-700 text-sm font-medium leading-5">{t.name}</span>
+                      </div>
+                    ))
+                  ) : (
+                    <span className="text-zinc-400 text-sm italic h-8 flex items-center">No taskers assigned</span>
+                  )}
+                </div>
+
+                {/* Status — one per tasker, stacked */}
+                <div className="w-[100px] shrink-0 hidden sm:flex flex-col gap-2 items-center">
+                  {taskersList.length > 0 ? (
+                    taskersList.map((t, ti) => {
+                      const isActive = t.status !== 'Inactive' && t.status !== 'Archived';
+                      return (
+                        <div key={ti} className="h-8 flex items-center justify-center">
+                          <button
+                            onClick={() => {
+                              if (onToggleTaskerStatus) {
+                                onToggleTaskerStatus(t.id, isActive ? 'Inactive' : 'Active');
+                              }
+                            }}
+                            className={`inline-flex items-center px-2.5 py-1 rounded-md text-[11px] font-semibold uppercase tracking-wider cursor-pointer transition-colors w-fit border ${
+                              isActive
+                                ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
+                                : 'bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100'
+                            }`}
+                          >
+                            {isActive ? 'Active' : 'Archived'}
+                          </button>
+                        </div>
+                      );
+                    })
+                  ) : (
+                    <div className="h-8 flex items-center justify-center">
+                      <span className="text-zinc-300 text-xs">—</span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Hours */}
+                <div className="w-[80px] shrink-0 text-stone-700 text-sm font-medium leading-6 hidden sm:flex justify-center pt-1">
+                  {project.totalHours}
+                </div>
+
+                {/* Menu */}
+                <div
+                  className="relative w-8 shrink-0 flex justify-end pt-1"
+                  ref={openProjectMenu === index ? projectMenuRef : undefined}
                 >
-                  <MoreVertical className="w-5 h-5 text-stone-700" />
-                </button>
-                {openProjectMenu === index && (
-                  <div className="absolute right-0 top-full mt-1 w-36 bg-white rounded-lg shadow-lg border-0 shadow-sm py-1 z-50">
-                    <button
-                      onClick={() => {
-                        setOpenProjectMenu(null);
-                        onEditProject(project);
-                      }}
-                      className="w-full px-4 py-2 text-left text-sm text-stone-900 hover:bg-zinc-50 transition-colors cursor-pointer"
-                    >
-                      Edit
-                    </button>
-                    <button
-                      onClick={() => {
-                        setOpenProjectMenu(null);
-                        onRemoveProject(project);
-                      }}
-                      className="w-full px-4 py-2 text-left text-sm text-stone-900 hover:bg-zinc-50 transition-colors cursor-pointer"
-                    >
-                      Remove
-                    </button>
-                  </div>
-                )}
+                  <button
+                    onClick={() => setOpenProjectMenu(openProjectMenu === index ? null : index)}
+                    className="p-1 rounded hover:bg-zinc-100 transition-colors cursor-pointer"
+                  >
+                    <MoreVertical className="w-5 h-5 text-stone-700" />
+                  </button>
+                  {openProjectMenu === index && (
+                    <div className="absolute right-0 top-full mt-1 w-36 bg-white rounded-lg shadow-lg border-0 shadow-sm py-1 z-50">
+                      <button
+                        onClick={() => {
+                          setOpenProjectMenu(null);
+                          onEditProject(project);
+                        }}
+                        className="w-full px-4 py-2 text-left text-sm text-stone-900 hover:bg-zinc-50 transition-colors cursor-pointer"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        onClick={() => {
+                          setOpenProjectMenu(null);
+                          onRemoveProject(project);
+                        }}
+                        className="w-full px-4 py-2 text-left text-sm text-stone-900 hover:bg-zinc-50 transition-colors cursor-pointer"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
     </div>
   );
 }
-

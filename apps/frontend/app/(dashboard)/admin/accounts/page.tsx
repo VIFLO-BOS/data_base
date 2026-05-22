@@ -12,27 +12,74 @@ import { AccountSuccessModal } from '../../../../components/accounts/account-suc
 import { AccountDetail } from '../../../../components/accounts/account-detail';
 import { AddProjectModal } from '../../../../components/accounts/add-project-modal';
 import { EditProjectModal } from '../../../../components/accounts/edit-project-modal';
-import { useDashboardStore } from '../../../../store/dashboardStore';
+import { getAccounts, createAccount, updateAccount, deleteAccount, Account } from '../../../../services/account-service';
+import { createProject, updateProject, deleteProject, assignAccountToProject, removeAccountFromProject } from '../../../../services/project-service';
+import { updateTasker } from '../../../../services/tasker-service';
+import { Loader2 } from 'lucide-react';
 
 /**
  * Admin Accounts Page
  * Full accounts lifecycle: empty state → list (All/Active/Archived) → detail view.
  */
 export default function AccountsPage() {
-  const { accounts, addAccount, updateAccount } = useDashboardStore();
+  const [accounts, setAccounts] = useState<Account[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  // Ensure accounts have necessary mapped UI properties
-  const mappedAccounts = accounts.map(a => ({
-    ...a,
-    assignedTasker: a.name === 'MAGS' ? 'Sarah Doe & Bill doe' : 'Bill Doe',
-    totalHours: a.name === 'MAGS' ? 30 : 10,
-    isArchived: a.status === 'Inactive',
-    dateCreated: 'Mon, April 22 2025',
-    clientName: a.name + ' Corp',
-    totalTaskers: a.name === 'MAGS' ? 2 : 1,
-    totalHoursLogged: a.name === 'MAGS' ? 30 : 10,
-    projects: a.projects.map(p => ({ name: p, assignedTaskers: 'Sarah Doe', totalHours: 10 }))
-  }));
+  const mappedAccounts = accounts.map(a => {
+    // Determine all taskers across all real projects for this account
+    const allTaskers = Array.from(
+      new Map(
+        (a.projects || [])
+          .flatMap((p: any) => (p.taskers || []).map((t: any) => ({ ...t, projectName: p.name })))
+          .map((t: any) => [t.id, t])
+      ).values()
+    );
+    const assignedTaskerStr = allTaskers.length > 0 
+      ? `${allTaskers.length} Tasker${allTaskers.length === 1 ? '' : 's'}`
+      : '0 Taskers';
+
+    // To support legacy dummy data, we fall back to settings.projects if a.projects is empty
+    const renderProjects = a.projects && a.projects.length > 0 ? a.projects.map((p: any) => {
+      // Deduplicate taskers in case the backend query returns duplicates
+      const uniqueTaskers = p.taskers ? Array.from(new Map(p.taskers.map((t: any) => [t.id, t])).values()) : [];
+      return {
+        id: p.id,
+        name: p.name,
+        assignedTaskers: uniqueTaskers.map((t: any) => `${t.firstName} ${t.lastName}`).join(' & '),
+        totalHours: p.totalHours || 0,
+        taskers: uniqueTaskers.map((t: any) => ({ id: t.id, name: `${t.firstName} ${t.lastName}`, status: t.status }))
+      };
+    }) : (a.settings?.projects || []);
+
+    return {
+      ...a,
+      assignedTasker: assignedTaskerStr,
+      totalHours: a.totalHours || 0,
+      isArchived: a.status === 'Inactive',
+      dateCreated: new Date(a.createdAt).toLocaleDateString('en-US', { weekday: 'short', month: 'long', day: 'numeric', year: 'numeric' }),
+      clientName: a.name,
+      totalTaskers: allTaskers.length || (a.settings?.projects?.reduce((acc: number, p: any) => acc + (p.assignedTaskers ? p.assignedTaskers.split(' & ').length : 0), 0) || 0),
+      totalHoursLogged: a.totalHours || 0,
+      projects: renderProjects,
+      allTaskers: allTaskers,
+    };
+  });
+
+  React.useEffect(() => {
+    fetchAccounts();
+  }, []);
+
+  const fetchAccounts = async () => {
+    setIsLoading(true);
+    try {
+      const response: any = await getAccounts(1, 100); // Fetch all for now
+      setAccounts(response?.data || []);
+    } catch (error) {
+      console.error("Failed to fetch accounts", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   // --- UI State ---
   const [activeFilter, setActiveFilter] = useState('All');
@@ -50,8 +97,10 @@ export default function AccountsPage() {
   const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
   const [editingAccountId, setEditingAccountId] = useState<string | null>(null);
   const [editingProject, setEditingProject] = useState<{
+    id?: string;
     name: string;
     assignedTaskers: string;
+    taskers?: {id: string; name: string}[];
     totalHours: number;
   } | null>(null);
 
@@ -86,43 +135,80 @@ export default function AccountsPage() {
   const filters = mappedAccounts.length > 0 ? ['All', 'Active', 'Archived'] : ['Active', 'Inactive'];
 
   // --- Handlers ---
-  function handleCreateAccount(data: {
-    project: string;
+  async function handleCreateAccount(data: {
+    projectId?: string;
+    projectName?: string;
+    isNewProject: boolean;
     accountName: string;
     clientName: string;
-    taskers: string[];
+    taskers: {id: string; name: string}[];
   }) {
-    addAccount({
-      name: data.accountName.toUpperCase(),
-      status: 'Active',
-      projects: data.project ? [data.project] : [],
-    });
-    setIsNewAccountOpen(false);
-    setIsSuccessOpen(true);
+    try {
+      const response = await createAccount({ name: data.accountName, email: `${data.accountName.toLowerCase().replace(/\s/g, '')}@example.com` });
+      const newAccount = response as any;
+      
+      let targetProjectId = data.projectId;
+      
+      if (data.isNewProject && data.projectName) {
+        const newProject = await createProject({
+          name: data.projectName,
+          description: `Created via Account ${newAccount.name}`,
+          taskerIds: data.taskers.map(t => t.id)
+        });
+        targetProjectId = (newProject as any).id || (newProject as any).data?.id;
+      }
+      
+      if (targetProjectId) {
+        // Assign the newly created account to the selected project
+        const createdAccountId = newAccount.id || newAccount.data?.id;
+        await assignAccountToProject(targetProjectId, createdAccountId);
+        
+        // Update the project's taskers if provided (for existing projects)
+        if (!data.isNewProject && data.taskers && data.taskers.length > 0) {
+          await updateProject(targetProjectId, {
+            taskerIds: data.taskers.map(t => t.id)
+          });
+        }
+      }
+
+      await fetchAccounts();
+      setIsNewAccountOpen(false);
+      setIsSuccessOpen(true);
+    } catch (e) {
+      console.error(e);
+    }
   }
 
-  function handleEditAccount(data: {
+  async function handleEditAccountSave(data: {
     project: string;
     accountName: string;
     clientName: string;
-    taskers: string[];
+    taskers: {id: string; name: string}[];
   }) {
     if (editingAccount) {
-      updateAccount(editingAccount.id, {
-        name: data.accountName.toUpperCase(),
-        projects: data.project ? [data.project] : []
-      });
+      try {
+        await updateAccount(editingAccount.id, { name: data.accountName });
+        await fetchAccounts();
+      } catch (e) {
+        console.error(e);
+      }
     }
     setIsEditAccountOpen(false);
     setEditingAccountId(null);
   }
 
-  function handleArchive(account: any) {
-    updateAccount(account.id, { status: 'Inactive' });
+  async function handleArchive(account: any) {
+    try {
+      await updateAccount(account.id, { status: 'Inactive' });
+      await fetchAccounts();
+    } catch (e) { console.error(e); }
   }
 
-  function handleUnarchive(account: any) {
-    updateAccount(account.id, { status: 'Active' });
+  async function handleUnarchive(account: any) {
+    try {
+      await updateAccount(account.id, { status: 'Active' });
+      await fetchAccounts();
+    } catch (e) { console.error(e); }
   }
 
   function handleView(account: any) {
@@ -134,32 +220,73 @@ export default function AccountsPage() {
     setIsEditAccountOpen(true);
   }
 
-  function handleAddProjectToAccount(data: { project: string; taskers: string[] }) {
+  async function handleAddProjectToAccount(data: { projectId?: string; projectName?: string; taskers: {id: string; name: string}[]; isNewProject: boolean }) {
     if (!selectedAccount) return;
-    updateAccount(selectedAccount.id, {
-      projects: [...selectedAccount.projects.map(p => p.name), data.project]
-    });
+    try {
+      let targetProjectId = data.projectId;
+      
+      // If the user elected to create a new project from the modal
+      if (data.isNewProject && data.projectName) {
+        const newProject = await createProject({
+          name: data.projectName,
+          description: `Created via Account ${selectedAccount.name}`,
+          taskerIds: data.taskers.map(t => t.id)
+        });
+        targetProjectId = (newProject as any).id || (newProject as any).data?.id;
+      }
+      
+      if (targetProjectId) {
+        await assignAccountToProject(targetProjectId, selectedAccount.id);
+        
+        // If it was an existing project, we still need to update the taskers
+        if (!data.isNewProject && data.taskers && data.taskers.length > 0) {
+          await updateProject(targetProjectId, { 
+            taskerIds: data.taskers.map(t => t.id) 
+          });
+        }
+      }
+      await fetchAccounts();
+    } catch (e) { console.error(e); }
     setIsAddProjectOpen(false);
   }
 
-  function handleEditProjectSave(data: { project: string; taskers: string[] }) {
+  async function handleEditProjectSave(data: { project: string; taskers: {id: string; name: string}[] }) {
     if (!selectedAccount || !editingProject) return;
-    updateAccount(selectedAccount.id, {
-      projects: selectedAccount.projects.map(p => p.name === editingProject.name ? data.project : p.name)
-    });
+    try {
+      if (editingProject.id) {
+        await updateProject(editingProject.id, { 
+          name: data.project, 
+          taskerIds: data.taskers.map(t => t.id) 
+        });
+      } else {
+        // Fallback for old dummy data
+        const currentProjects = selectedAccount.projects || [];
+        const updatedProjects = currentProjects.map((p: any) => 
+          p.name === editingProject.name 
+            ? { ...p, name: data.project, assignedTaskers: data.taskers.map(t => t.name).join(' & ') }
+            : p
+        );
+        await updateAccount(selectedAccount.id, { settings: { projects: updatedProjects } } as any);
+      }
+      await fetchAccounts();
+    } catch (e) { console.error(e); }
     setIsEditProjectOpen(false);
     setEditingProject(null);
   }
 
-  function handleRemoveProject(project: {
-    name: string;
-    assignedTaskers: string;
-    totalHours: number;
-  }) {
+  async function handleRemoveProject(project: any) {
     if (!selectedAccount) return;
-    updateAccount(selectedAccount.id, {
-      projects: selectedAccount.projects.filter(p => p.name !== project.name).map(p => p.name)
-    });
+    try {
+      if (project.id) {
+        // Only remove the relationship, don't delete the project itself
+        await removeAccountFromProject(project.id, selectedAccount.id);
+      } else {
+        const currentProjects = selectedAccount.projects || [];
+        const filteredProjects = currentProjects.filter((p: any) => p.name !== project.name);
+        await updateAccount(selectedAccount.id, { settings: { projects: filteredProjects } } as any);
+      }
+      await fetchAccounts();
+    } catch (e) { console.error(e); }
   }
 
   // =============== RENDER ===============
@@ -174,13 +301,17 @@ export default function AccountsPage() {
             isActive: !selectedAccount.isArchived,
             dateCreated: selectedAccount.dateCreated || 'N/A',
             projects: selectedAccount.projects || [],
+            allTaskers: selectedAccount.allTaskers || [],
             totalTaskers: selectedAccount.totalTaskers || 0,
             totalHoursLogged: selectedAccount.totalHoursLogged || 0,
           }}
           onBack={() => setSelectedAccountId(null)}
           onEditAccount={() => handleEditClick(selectedAccount)}
-          onRemoveAccount={() => {
-            updateAccount(selectedAccount.id, { status: 'Inactive' }); // Mock removal
+          onRemoveAccount={async () => {
+            try {
+              await updateAccount(selectedAccount.id, { status: 'Inactive' });
+              await fetchAccounts();
+            } catch (e) { console.error(e); }
             setSelectedAccountId(null);
           }}
           onAddProject={() => setIsAddProjectOpen(true)}
@@ -189,6 +320,14 @@ export default function AccountsPage() {
             setIsEditProjectOpen(true);
           }}
           onRemoveProject={handleRemoveProject}
+          onToggleTaskerStatus={async (taskId, status) => {
+            try {
+              await updateTasker(taskId, { status });
+              await fetchAccounts();
+            } catch (e) {
+              console.error(e);
+            }
+          }}
         />
 
         {/* Add Project Modal */}
@@ -209,7 +348,7 @@ export default function AccountsPage() {
             onSave={handleEditProjectSave}
             initialData={{
               project: editingProject.name,
-              taskers: editingProject.assignedTaskers.split(' & ').filter(Boolean),
+              taskers: editingProject.taskers || [],
             }}
           />
         )}
@@ -221,12 +360,12 @@ export default function AccountsPage() {
               setIsEditAccountOpen(false);
               setEditingAccountId(null);
             }}
-            onSave={handleEditAccount}
+            onSave={handleEditAccountSave}
             initialData={{
               project: editingAccount.projects?.[0]?.name || 'Ventree',
               accountName: editingAccount.name,
               clientName: editingAccount.clientName || '',
-              taskers: editingAccount.assignedTasker.split(' & ').filter(Boolean),
+              taskers: editingAccount.projects?.[0]?.taskers || [],
             }}
           />
         )}
@@ -251,7 +390,11 @@ export default function AccountsPage() {
         />
 
         {/* Empty or Populated */}
-        {mappedAccounts.length === 0 ? (
+        {isLoading ? (
+          <div className="w-full flex justify-center py-12">
+            <Loader2 className="w-8 h-8 text-indigo-500 animate-spin" />
+          </div>
+        ) : mappedAccounts.length === 0 ? (
           <AccountsEmptyState onCreateClick={() => setIsNewAccountOpen(true)} />
         ) : (
           <>
@@ -294,12 +437,12 @@ export default function AccountsPage() {
             setIsEditAccountOpen(false);
             setEditingAccountId(null);
           }}
-          onSave={handleEditAccount}
+          onSave={handleEditAccountSave}
           initialData={{
             project: editingAccount.projects?.[0]?.name || 'Ventree',
             accountName: editingAccount.name,
             clientName: editingAccount.clientName || '',
-            taskers: editingAccount.assignedTasker.split(' & ').filter(Boolean),
+            taskers: editingAccount.projects?.[0]?.taskers || [],
           }}
         />
       )}

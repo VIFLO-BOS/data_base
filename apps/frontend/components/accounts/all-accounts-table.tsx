@@ -2,8 +2,71 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { MoreVertical, ChevronDown } from 'lucide-react';
+import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
+
+/**
+ * ProjectDropdown — reusable project filter dropdown
+ */
+function ProjectDropdown({ value }: { value: string }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [selected, setSelected] = useState(value === 'Ventree' ? 'All Projects' : value);
+  const ref = useRef<HTMLDivElement>(null);
+  const [projects, setProjects] = useState<string[]>(['All Projects']);
+
+  useEffect(() => {
+    async function fetchProjects() {
+      try {
+        const { getProjects } = await import('../../services/project-service');
+        const res = await getProjects(1, 100);
+        const data = (res as any).data?.data || [];
+        setProjects(['All Projects', ...data.map((p: any) => p.name)]);
+      } catch (e) {
+        console.error(e);
+      }
+    }
+    fetchProjects();
+  }, []);
+
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setIsOpen(false);
+    }
+    if (isOpen) document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, [isOpen]);
+
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        className={`min-w-[180px] h-10 px-3 rounded-lg bg-white border flex justify-between items-center gap-3 hover:bg-zinc-50 transition-all cursor-pointer ${
+          isOpen ? 'border-indigo-500 ring-[3px] ring-indigo-500/15' : 'border-zinc-300'
+        }`}
+      >
+        <span className="text-stone-900 text-sm font-medium">{selected}</span>
+        <ChevronDown className={`w-4 h-4 text-zinc-400 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
+      </button>
+      {isOpen && (
+        <div className="absolute right-0 top-full mt-1.5 min-w-[180px] bg-white rounded-lg shadow-lg border border-zinc-200 py-1 z-50">
+          {projects.map((project) => (
+            <button
+              key={project}
+              onClick={() => { setSelected(project); setIsOpen(false); }}
+              className={`w-full px-3 py-2 text-left text-sm font-medium transition-colors hover:bg-zinc-50 ${
+                project === selected ? 'text-indigo-600 bg-indigo-50' : 'text-stone-700'
+              }`}
+            >
+              {project}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 interface AccountRowData {
+  id: string;
   name: string;
   assignedTasker: string;
   totalHours: number;
@@ -90,18 +153,13 @@ export function AllAccountsTable({
           <span className="text-stone-900 text-base font-medium leading-6">
             {filterLabel}
           </span>
-          <div className="h-6 px-2 py-1 bg-gray-100 rounded-md flex justify-center items-center">
-            <span className="text-stone-900 text-xs font-medium leading-4">
+          <div className="px-2.5 py-1 bg-indigo-50 rounded-full flex justify-center items-center ring-1 ring-indigo-100">
+            <span className="text-indigo-600 text-xs font-semibold tabular-nums">
               {totalCount}
             </span>
           </div>
         </div>
-        <div className="w-60 p-3 rounded-xl border-0 shadow-sm flex justify-between items-center cursor-pointer hover:bg-zinc-50 transition-colors">
-          <span className="flex-1 text-stone-900 text-sm font-medium leading-6">
-            {projectFilter}
-          </span>
-          <ChevronDown className="w-4 h-4 text-stone-900" />
-        </div>
+        <ProjectDropdown value={projectFilter} />
       </div>
 
       {/* Table Content */}
@@ -144,29 +202,31 @@ export function AllAccountsTable({
             </div>
 
             {/* 3-dot Menu */}
-            <div className="relative w-8 flex justify-center" ref={openMenuIndex === index ? menuRef : undefined}>
-              <button
-                onClick={() => setOpenMenuIndex(openMenuIndex === index ? null : index)}
-                className="p-1 rounded hover:bg-zinc-100 transition-colors cursor-pointer"
-              >
-                <MoreVertical className="w-5 h-5 text-stone-700" />
-              </button>
-              {openMenuIndex === index && (
-                <div className="absolute right-0 top-full mt-1 w-36 bg-white rounded-lg shadow-lg border-0 shadow-sm py-1 z-50 animate-in fade-in slide-in-from-top-1 duration-150">
-                  {getMenuItems(account).map((item) => (
-                    <button
-                      key={item.label}
-                      onClick={() => {
-                        item.action();
-                        setOpenMenuIndex(null);
-                      }}
-                      className="w-full px-4 py-2 text-left text-sm text-stone-900 hover:bg-zinc-50 transition-colors cursor-pointer"
-                    >
-                      {item.label}
-                    </button>
-                  ))}
-                </div>
-              )}
+            <div className="relative w-8 flex justify-center">
+              <DropdownMenu.Root>
+                <DropdownMenu.Trigger asChild>
+                  <button className="p-1 rounded hover:bg-zinc-100 transition-colors cursor-pointer outline-none">
+                    <MoreVertical className="w-5 h-5 text-stone-700" />
+                  </button>
+                </DropdownMenu.Trigger>
+                <DropdownMenu.Portal>
+                  <DropdownMenu.Content
+                    align="end"
+                    sideOffset={5}
+                    className="w-36 bg-white rounded-lg shadow-lg border border-zinc-100 py-1 z-[100] flex flex-col animate-in fade-in slide-in-from-top-1 duration-150"
+                  >
+                    {getMenuItems(account).map((item) => (
+                      <DropdownMenu.Item
+                        key={item.label}
+                        onClick={item.action}
+                        className="w-full px-4 py-2 text-left text-sm text-stone-900 hover:bg-zinc-50 transition-colors cursor-pointer outline-none"
+                      >
+                        {item.label}
+                      </DropdownMenu.Item>
+                    ))}
+                  </DropdownMenu.Content>
+                </DropdownMenu.Portal>
+              </DropdownMenu.Root>
             </div>
           </div>
         ))}

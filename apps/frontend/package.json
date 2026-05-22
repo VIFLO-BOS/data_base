@@ -50,6 +50,7 @@
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-hook-form": "^7.51.4",
+    "react-hot-toast": "^2.6.0",
     "react-query": "^3.39.3",
     "recharts": "^2.12.7",
     "tailwind-merge": "^2.3.0",

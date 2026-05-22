@@ -2,13 +2,14 @@
  * Auth Controller
  * TODO: Implement API endpoints for auth management.
  */
-import { Controller,Body,Post,Get,Request } from '@nestjs/common';
-import { ApiTags,ApiOperation,ApiBearerAuth } from '@nestjs/swagger';
+import { Controller, Body, Post, Get, Request } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
 import { Public } from '@/common/decorators/public.decorator';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
+import { OAuthLoginDto } from './dto/oauth-login.dto';
 
 @ApiTags('Auth')
 @Controller('auth')
@@ -20,7 +21,7 @@ export class AuthController {
   @ApiOperation({ summary: 'Register a new admin account' })
   async register(@Body() dto: RegisterDto) {
     const user = await this.AuthService.register(dto);
-    return { success: true, user, message: 'User registered successfully' };
+    return { success: true, ...user, message: 'User registered successfully' };
   }
 
   @Public()
@@ -28,6 +29,13 @@ export class AuthController {
   @ApiOperation({ summary: 'Login with email and password' })
   login(@Body() dto: LoginDto) {
     return this.AuthService.login(dto);
+  }
+
+  @Public()
+  @Post('oauth-login')
+  @ApiOperation({ summary: 'Login or Register via OAuth' })
+  oauthLogin(@Body() dto: OAuthLoginDto) {
+    return this.AuthService.oauthLogin(dto);
   }
 
   @Public()

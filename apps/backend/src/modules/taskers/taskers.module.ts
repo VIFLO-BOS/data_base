@@ -6,10 +6,19 @@ import { Module } from '@nestjs/common';
 import { TaskersController } from './taskers.controller';
 import { TaskersService } from './taskers.service';
 import { TaskerEntity } from './entities/tasker.entity';
-
+import { TaskerPaymentEntity } from './entities/tasker-payment.entity';
+import { TimesheetEntity } from '../timesheets/entities/timesheet.entity';
+import { TimesheetEntryEntity } from '../timesheets/entities/timesheet-entry.entity';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([TaskerEntity])],
+  imports: [
+    TypeOrmModule.forFeature([
+      TaskerEntity,
+      TaskerPaymentEntity,
+      TimesheetEntity,
+      TimesheetEntryEntity,
+    ]),
+  ],
   controllers: [TaskersController],
   providers: [TaskersService],
   exports: [TaskersService],

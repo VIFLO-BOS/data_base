@@ -19,13 +19,12 @@ export function LogoutButton() {
  return (
  <button
  onClick={handleLogout}
- className="self-stretch px-4 py-3 rounded-md flex justify-start items-center gap-3 cursor-pointer hover:bg-red-50 transition-colors w-full"
+ className="group self-stretch px-4 py-3 rounded-lg flex justify-start items-center gap-3 cursor-pointer hover:bg-rose-50 transition-all duration-200 w-full"
  >
- <LogOut className="w-5 h-5 text-red-600" />
- <span className="text-red-600 text-base font-medium leading-6">
+ <LogOut className="w-5 h-5 text-zinc-400 group-hover:text-rose-500 transition-colors duration-200" />
+ <span className="text-zinc-500 text-base font-medium leading-6 group-hover:text-rose-600 transition-colors duration-200">
  Log out
  </span>
  </button>
  );
 }
-
