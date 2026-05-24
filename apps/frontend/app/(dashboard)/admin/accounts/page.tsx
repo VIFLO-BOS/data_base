@@ -462,6 +462,7 @@ export default function AccountsPage() {
             }}
             onSave={handleEditAccountSave}
             initialData={{
+              projectId: editingAccount.projects?.[0]?.id || '',
               project: editingAccount.projects?.[0]?.name || 'Ventree',
               accountName: editingAccount.name,
               clientName: editingAccount.clientName || '',
