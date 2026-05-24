@@ -26,11 +26,24 @@ export interface PaginatedResponse<T> {
   limit: number;
 }
 
-export async function getProjects(page = 1, limit = 20, status?: string) {
+export interface ProjectsListMeta {
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
+export interface ProjectsListPayload {
+  data: Project[];
+  meta: ProjectsListMeta;
+}
+
+export async function getProjects(page = 1, limit = 20, status?: string): Promise<Project[]> {
   const params: Record<string, any> = { page, limit };
   if (status) params.status = status;
-  const { data } = await apiClient.get<any>('/projects', { params });
-  return data.data;
+  const { data } = await apiClient.get<{ data: ProjectsListPayload }>('/projects', { params });
+  const payload = data.data;
+  return Array.isArray(payload) ? payload : (payload?.data ?? []);
 }
 
 export async function getProjectById(id: string) {
@@ -38,12 +51,32 @@ export async function getProjectById(id: string) {
   return data.data; // Unwrap the interceptor data wrapper
 }
 
-export async function createProject(payload: { name: string; description?: string; platformName?: string; platformUrl?: string; pricePerHour?: number; accountIds?: string[]; taskerIds?: string[] }) {
+export async function createProject(payload: {
+  name: string;
+  description?: string;
+  platformName?: string;
+  platformUrl?: string;
+  pricePerHour?: number;
+  accountIds?: string[];
+  taskerIds?: string[];
+}) {
   const { data } = await apiClient.post<any>('/projects', payload);
   return data.data;
 }
 
-export async function updateProject(id: string, payload: Partial<{ name: string; description: string; platformName: string; platformUrl: string; pricePerHour: number; status: string; taskerIds: string[]; accountIds: string[] }>) {
+export async function updateProject(
+  id: string,
+  payload: Partial<{
+    name: string;
+    description: string;
+    platformName: string;
+    platformUrl: string;
+    pricePerHour: number;
+    status: string;
+    taskerIds: string[];
+    accountIds: string[];
+  }>,
+) {
   const { data } = await apiClient.patch<any>(`/projects/${id}`, payload);
   return data.data;
 }
@@ -53,8 +86,13 @@ export async function deleteProject(id: string) {
   return data.data;
 }
 
-export async function assignTaskerToProject(projectId: string, taskerId: string) {
-  const { data } = await apiClient.post<any>(`/projects/${projectId}/taskers/${taskerId}`);
+export async function deleteProjectPermanently(id: string) {
+  const { data } = await apiClient.delete<any>(`/projects/${id}/permanent`);
+  return data.data;
+}
+
+export async function assignTaskerToProject(projectId: string, taskerId: string, accountId?: string) {
+  const { data } = await apiClient.post<any>(`/projects/${projectId}/taskers/${taskerId}`, { accountId });
   return data.data;
 }
 

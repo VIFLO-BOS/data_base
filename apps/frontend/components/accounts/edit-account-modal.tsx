@@ -8,13 +8,15 @@ import { TaskerSearchInput } from '../taskers/tasker-search-input';
 interface EditAccountModalProps {
   onClose: () => void;
   onSave: (data: {
+    projectId: string;
     project: string;
     accountName: string;
     clientName: string;
     taskers: {id: string; name: string}[];
   }) => void;
   initialData: {
-    project: string;
+    projectId: string;
+    project: string; // The name (for fallback)
     accountName: string;
     clientName: string;
     taskers: {id: string; name: string}[];
@@ -26,6 +28,7 @@ interface EditAccountModalProps {
  * Modal form for editing an existing account.
  */
 export function EditAccountModal({ onClose, onSave, initialData }: EditAccountModalProps) {
+  const [projectId, setProjectId] = useState(initialData.projectId);
   const [project, setProject] = useState(initialData.project);
   const [accountName, setAccountName] = useState(initialData.accountName);
   const [clientName, setClientName] = useState(initialData.clientName);
@@ -35,8 +38,8 @@ export function EditAccountModal({ onClose, onSave, initialData }: EditAccountMo
   useEffect(() => {
     async function load() {
       try {
-        const response = await getProjects(1, 100);
-        setProjectsList((response as any).data?.data || []);
+        const list = await getProjects(1, 100);
+        setProjectsList(list);
       } catch (e) {
         console.error(e);
       }
@@ -44,7 +47,7 @@ export function EditAccountModal({ onClose, onSave, initialData }: EditAccountMo
     load();
   }, []);
 
-  const isValid = project && accountName && clientName;
+  const isValid = projectId && accountName && clientName;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/30">
@@ -65,12 +68,16 @@ export function EditAccountModal({ onClose, onSave, initialData }: EditAccountMo
           <label className="text-stone-900 text-sm font-medium leading-6">Project</label>
           <div className="relative">
             <select
-              value={project}
-              onChange={(e) => setProject(e.target.value)}
+              value={projectId}
+              onChange={(e) => {
+                setProjectId(e.target.value);
+                const p = projectsList.find(proj => proj.id === e.target.value);
+                if (p) setProject(p.name);
+              }}
               className="w-full p-3 rounded-xl border-0 shadow-sm text-sm font-medium leading-6 appearance-none bg-white cursor-pointer text-stone-900 outline-none"
             >
               {projectsList.map((p) => (
-                <option key={p.id} value={p.name}>
+                <option key={p.id} value={p.id}>
                   {p.name}
                 </option>
               ))}
@@ -107,7 +114,7 @@ export function EditAccountModal({ onClose, onSave, initialData }: EditAccountMo
         {/* Save Button */}
         <button
           onClick={() =>
-            isValid && onSave({ project, accountName, clientName, taskers: selectedTaskers })
+            isValid && onSave({ projectId, project, accountName, clientName, taskers: selectedTaskers })
           }
           disabled={!isValid}
           className={`w-full px-4 py-3 rounded-lg flex justify-center items-center transition-colors cursor-pointer ${

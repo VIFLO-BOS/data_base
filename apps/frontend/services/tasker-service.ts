@@ -24,19 +24,28 @@ export interface Tasker {
   updatedAt: string;
 }
 
-export async function getTaskers(page = 1, limit = 20, status?: string) {
+export async function getTaskers(page = 1, limit = 20, status?: string): Promise<Tasker[]> {
   const params: Record<string, any> = { page, limit };
   if (status) params.status = status;
-  const { data } = await apiClient.get<PaginatedResponse<Tasker>>('/taskers', { params });
-  return data;
+  const { data } = await apiClient.get<any>('/taskers', { params });
+  const payload = data.data;
+  return Array.isArray(payload) ? payload : (payload?.data ?? []);
 }
 
 export async function getTaskerById(id: string) {
-  const { data } = await apiClient.get<Tasker>(`/taskers/${id}`);
-  return data;
+  const { data } = await apiClient.get<any>(`/taskers/${id}`);
+  return data.data;
 }
 
-export async function createTasker(payload: { firstName: string; lastName: string; email: string; phone?: string; bankName?: string; accountName?: string; accountNumber?: string; }) {
+export async function createTasker(payload: {
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone?: string;
+  bankName?: string;
+  accountName?: string;
+  accountNumber?: string;
+}) {
   const { data } = await apiClient.post<Tasker>('/taskers', payload);
   return data;
 }
@@ -51,12 +60,29 @@ export async function deleteTasker(id: string) {
   return data;
 }
 
-export async function addTaskerPayment(taskerId: string, payload: { amount: number; paymentDate: string; projectId?: string }) {
+export async function deleteTaskerPermanently(id: string) {
+  const { data } = await apiClient.delete(`/taskers/${id}/permanent`);
+  return data;
+}
+
+export async function addTaskerPayment(
+  taskerId: string,
+  payload: { amount: number; paymentDate: string; projectId?: string },
+) {
   const { data } = await apiClient.post(`/taskers/${taskerId}/payments`, payload);
   return data;
 }
 
-export async function addTaskerDailyHour(taskerId: string, payload: { hours: number; date: string; casualties?: string; projectId?: string }) {
+export async function addTaskerDailyHour(
+  taskerId: string,
+  payload: {
+    hours: number;
+    date: string;
+    casualties?: string;
+    projectId: string;
+    accountId: string;
+  },
+) {
   const { data } = await apiClient.post(`/taskers/${taskerId}/hours`, payload);
   return data;
 }

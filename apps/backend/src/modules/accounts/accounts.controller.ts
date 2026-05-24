@@ -51,6 +51,13 @@ export class AccountsController {
     return this.accountsService.update(id, dto);
   }
 
+  @Delete(':id/permanent')
+  @Roles('admin', 'super_admin')
+  @ApiOperation({ summary: 'Permanently delete account' })
+  removePermanently(@Param('id') id: string) {
+    return this.accountsService.delete(id);
+  }
+
   @Delete(':id')
   @Roles('admin', 'super_admin')
   remove(@Param('id') id: string) {

@@ -13,7 +13,7 @@ interface TaskerSearchInputProps {
 export function TaskerSearchInput({
   selectedTaskers,
   onChange,
-  placeholder = "Search and add taskers...",
+  placeholder = 'Search and add taskers...',
 }: TaskerSearchInputProps) {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<Tasker[]>([]);
@@ -43,14 +43,20 @@ export function TaskerSearchInput({
       setIsLoading(true);
       try {
         const response = await getTaskers(1, 100);
-        const allTaskers = (response as any).data?.data || [];
-        
+        // `getTaskers` may return either a plain array or a paginated payload
+        // Normalize to an array of taskers.
+        const allTaskers: Tasker[] = Array.isArray(response)
+          ? response
+          : (response as any)?.data?.data || (response as any)?.data || [];
+
         // Filter by name and exclude already selected
         const filtered = allTaskers.filter((t: Tasker) => {
           const fullName = `${t.firstName} ${t.lastName}`.toLowerCase();
-          return fullName.includes(query.toLowerCase()) && !selectedTaskers.some(st => st.id === t.id);
+          return (
+            fullName.includes(query.toLowerCase()) && !selectedTaskers.some((st) => st.id === t.id)
+          );
         });
-        
+
         setResults(filtered);
         setIsOpen(true);
       } catch (e) {
@@ -66,7 +72,7 @@ export function TaskerSearchInput({
 
   const handleSelect = (tasker: Tasker) => {
     const fullName = `${tasker.firstName} ${tasker.lastName}`;
-    if (!selectedTaskers.some(st => st.id === tasker.id)) {
+    if (!selectedTaskers.some((st) => st.id === tasker.id)) {
       onChange([...selectedTaskers, { id: tasker.id, name: fullName }]);
     }
     setQuery('');
@@ -74,7 +80,7 @@ export function TaskerSearchInput({
   };
 
   const handleRemove = (idToRemove: string) => {
-    onChange(selectedTaskers.filter(t => t.id !== idToRemove));
+    onChange(selectedTaskers.filter((t) => t.id !== idToRemove));
   };
 
   return (
@@ -101,7 +107,7 @@ export function TaskerSearchInput({
       {/* Autocomplete Dropdown */}
       {isOpen && results.length > 0 && (
         <div className="absolute top-[68px] left-0 w-full bg-white border border-zinc-200 shadow-lg rounded-lg z-50 max-h-48 overflow-y-auto">
-          {results.map(tasker => (
+          {results.map((tasker) => (
             <div
               key={tasker.id}
               onClick={() => handleSelect(tasker)}

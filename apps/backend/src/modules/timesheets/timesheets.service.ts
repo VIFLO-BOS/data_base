@@ -1,6 +1,5 @@
 /**
  * Timesheets Service
- * TODO: Implement business logic for timesheets.
  */
 import {
   Injectable,
@@ -12,6 +11,8 @@ import { Repository } from 'typeorm';
 import { TimesheetEntity } from './entities/timesheet.entity';
 import { TimesheetEntryEntity } from './entities/timesheet-entry.entity';
 import { CreateTimesheetDto } from './dto/create-timesheet.dto';
+import { AssignmentsService } from '../assignments/assignments.service';
+import { TaskerPaymentEntity } from '../taskers/entities/tasker-payment.entity';
 
 @Injectable()
 export class TimesheetsService {
@@ -20,35 +21,127 @@ export class TimesheetsService {
     private timesheetsRepo: Repository<TimesheetEntity>,
     @InjectRepository(TimesheetEntryEntity)
     private entriesRepo: Repository<TimesheetEntryEntity>,
+    @InjectRepository(TaskerPaymentEntity)
+    private paymentsRepo: Repository<TaskerPaymentEntity>,
+    private assignmentsService: AssignmentsService,
   ) {}
 
   async findAll(page = 1, limit = 20, status?: string, weekStarting?: string) {
-    const qb = this.timesheetsRepo
-      .createQueryBuilder('ts')
-      .leftJoinAndSelect('ts.tasker', 'tasker')
-      .leftJoinAndSelect('tasker.user', 'user')
-      .leftJoinAndSelect('ts.project', 'project')
-      .leftJoinAndSelect('ts.entries', 'entries')
-      .orderBy('ts.createdAt', 'DESC')
-      .skip((page - 1) * limit)
-      .take(limit);
+    // If filtering by status, use the original timesheet-only query
+    if (status) {
+      const qb = this.timesheetsRepo
+        .createQueryBuilder('ts')
+        .leftJoinAndSelect('ts.tasker', 'tasker')
+        .leftJoinAndSelect('tasker.user', 'user')
+        .leftJoinAndSelect('ts.project', 'project')
+        .leftJoinAndSelect('ts.account', 'account')
+        .leftJoinAndSelect('ts.entries', 'entries')
+        .where('ts.status = :status', { status })
+        .orderBy('ts.createdAt', 'DESC')
+        .skip((page - 1) * limit)
+        .take(limit);
 
-    if (status) qb.where('ts.status = :status', { status });
-    if (weekStarting) qb.andWhere('ts.weekStarting = :weekStarting', { weekStarting });
-    const [data, total] = await qb.getManyAndCount();
-
-    const cleanData = data.map(ts => {
-      if (ts.entries) {
-        ts.entries = ts.entries.map(e => {
-          const { timesheet, ...rest } = e as any;
-          return rest;
-        }) as any;
+      if (weekStarting) {
+        qb.andWhere('ts.weekStarting = :weekStarting', { weekStarting });
       }
-      return ts;
+      const [data, total] = await qb.getManyAndCount();
+      const cleanData = data.map((ts) => {
+        if (ts.entries) {
+          ts.entries = ts.entries.map((e) => {
+            const { timesheet, ...rest } = e as any;
+            return rest;
+          }) as any;
+        }
+        return ts;
+      });
+      return {
+        data: cleanData,
+        meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
+      };
+    }
+
+    // Timeline View: return ALL active assignments, merged with their timesheets
+    const { data: assignments, total } = await this.assignmentsService.getAllActiveAssignments(page, limit);
+
+    // Build a timesheet query based on what period we're in
+    const tsQb = this.timesheetsRepo
+      .createQueryBuilder('ts')
+      .leftJoinAndSelect('ts.entries', 'entries');
+
+    if (weekStarting) {
+      tsQb.where('ts.weekStarting = :weekStarting', { weekStarting });
+    }
+
+    const existingTimesheets = await tsQb.getMany();
+
+    let paymentSums: any[] = [];
+    if (assignments.length > 0) {
+      const taskerIds = [...new Set(assignments.map(a => a.taskerId))];
+      paymentSums = await this.paymentsRepo
+        .createQueryBuilder('p')
+        .select('p.taskerId', 'taskerId')
+        .addSelect('p.projectId', 'projectId')
+        .addSelect('SUM(p.amount)', 'total')
+        .where('p.taskerId IN (:...taskerIds)', { taskerIds })
+        .groupBy('p.taskerId')
+        .addGroupBy('p.projectId')
+        .getRawMany();
+    }
+
+    const mappedData = assignments.map(a => {
+      const paymentRow = paymentSums.find(p => p.taskerId === a.taskerId && p.projectId === a.projectId);
+      const totalAmount = paymentRow ? `$${Number(paymentRow.total).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '$0.00';
+
+      // Find ALL matching timesheets for this assignment (could be multiple weeks)
+      const matchingTimesheets = existingTimesheets.filter(ts =>
+        ts.taskerId === a.taskerId &&
+        ts.projectId === a.projectId &&
+        ts.accountId === a.accountId
+      );
+
+      if (matchingTimesheets.length > 0) {
+        // Merge all entries from all matching timesheets into one row
+        const allEntries = matchingTimesheets.flatMap(ts =>
+          (ts.entries || []).map(e => {
+            const { timesheet, ...rest } = e as any;
+            return rest;
+          })
+        );
+        const totalHours = allEntries.reduce((sum, e) => sum + Number(e.hoursWorked || 0), 0);
+
+        // Use the first real timesheet's ID for editing
+        const primaryTs = matchingTimesheets[0];
+        return {
+          ...primaryTs,
+          entries: allEntries,
+          totalHours,
+          totalAmount,
+          tasker: a.tasker,
+          project: a.project,
+          account: a.account,
+        };
+      } else {
+        // Virtual row — tasker assigned but no timesheet exists yet
+        const virtualWeek = weekStarting || new Date().toISOString().split('T')[0];
+        return {
+          id: `virtual|${a.taskerId}|${a.projectId}|${a.accountId}|${virtualWeek}`,
+          taskerId: a.taskerId,
+          projectId: a.projectId,
+          accountId: a.accountId,
+          weekStarting: virtualWeek,
+          status: 'draft',
+          totalHours: 0,
+          totalAmount,
+          entries: [],
+          tasker: a.tasker,
+          project: a.project,
+          account: a.account,
+        };
+      }
     });
 
     return {
-      data: cleanData,
+      data: mappedData,
       meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
     };
   }
@@ -56,17 +149,27 @@ export class TimesheetsService {
   async findById(id: string) {
     const ts = await this.timesheetsRepo.findOne({
       where: { id },
-      relations: ['tasker', 'tasker.user', 'project', 'entries', 'approver'],
+      relations: ['tasker', 'tasker.user', 'project', 'account', 'entries', 'approver'],
     });
     if (!ts) throw new NotFoundException('Timesheet not found');
     return ts;
   }
 
-  async create(dto: CreateTimesheetDto) {
+  async create(dto: CreateTimesheetDto & { accountId?: string }) {
+    if (!dto.accountId) {
+      throw new BadRequestException('accountId is required');
+    }
+    await this.assignmentsService.assertCanLogHours(
+      dto.accountId,
+      dto.projectId,
+      dto.taskerId,
+    );
+
     const totalHours = dto.entries.reduce((sum, e) => sum + e.hoursWorked, 0);
     const timesheet = this.timesheetsRepo.create({
       taskerId: dto.taskerId,
       projectId: dto.projectId,
+      accountId: dto.accountId,
       weekStarting: dto.weekStarting as any,
       totalHours,
       entries: dto.entries as any,
@@ -112,36 +215,69 @@ export class TimesheetsService {
     hoursWorked: number,
     taskDescription?: string,
   ) {
-    const ts = await this.findById(timesheetId);
+    try {
+      let ts: TimesheetEntity;
+      let actualTimesheetId = timesheetId;
 
-    // Find existing entry for the date or create new
-    let entry = ts.entries?.find(
-      (e) =>
-        new Date(e.entryDate).toISOString().split('T')[0] === entryDate,
-    );
+      if (timesheetId.startsWith('virtual|')) {
+        const [, taskerId, projectId, accountIdStr, weekStarting] = timesheetId.split('|');
+        
+        ts = this.timesheetsRepo.create({
+          taskerId,
+          projectId,
+          accountId: accountIdStr === 'null' ? null : accountIdStr,
+          weekStarting: weekStarting as any,
+          status: 'draft',
+          totalHours: 0,
+        });
+        ts = await this.timesheetsRepo.save(ts);
+        actualTimesheetId = ts.id;
+      } else {
+        ts = await this.findById(timesheetId);
+      }
 
-    if (entry) {
-      entry.hoursWorked = hoursWorked;
-      if (taskDescription !== undefined) entry.taskDescription = taskDescription;
-      await this.entriesRepo.save(entry);
-    } else {
-      const newEntry = this.entriesRepo.create({
-        timesheetId,
-        entryDate: entryDate as any,
-        hoursWorked,
-        taskDescription,
+      if (ts.accountId && ts.projectId && ts.taskerId) {
+        await this.assignmentsService.assertCanLogHours(
+          ts.accountId,
+          ts.projectId,
+          ts.taskerId,
+        );
+      }
+
+      let entry = ts.entries?.find(
+        (e) =>
+          new Date(e.entryDate).toISOString().split('T')[0] === entryDate,
+      );
+
+      if (entry) {
+        entry.hoursWorked = hoursWorked;
+        if (taskDescription !== undefined) entry.taskDescription = taskDescription;
+        await this.entriesRepo.save(entry);
+      } else {
+        const newEntry = this.entriesRepo.create({
+          timesheetId: actualTimesheetId,
+          entryDate: entryDate as any,
+          hoursWorked,
+          taskDescription,
+        });
+        await this.entriesRepo.save(newEntry);
+      }
+
+      const allEntries = await this.entriesRepo.find({
+        where: { timesheetId: actualTimesheetId },
       });
-      await this.entriesRepo.save(newEntry);
+      const totalHours = allEntries.reduce(
+        (sum, e) => sum + Number(e.hoursWorked),
+        0,
+      );
+      await this.timesheetsRepo.update(actualTimesheetId, { totalHours });
+      return this.timesheetsRepo.findOne({
+        where: { id: actualTimesheetId },
+        relations: ['tasker', 'tasker.user', 'project', 'account', 'entries'],
+      });
+    } catch (e: any) {
+      console.error('ERROR IN updateEntry:', e);
+      throw new BadRequestException(`DEBUG_500: ${e.message} \nStack: ${e.stack}`);
     }
-
-    // Recalculate total hours
-    const allEntries = await this.entriesRepo.find({
-      where: { timesheetId },
-    });
-    ts.totalHours = allEntries.reduce(
-      (sum, e) => sum + Number(e.hoursWorked),
-      0,
-    );
-    return this.timesheetsRepo.save(ts);
   }
 }

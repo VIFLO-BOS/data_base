@@ -7,7 +7,7 @@ interface ProjectData {
   id?: string;
   name: string;
   assignedTaskers: string;
-  taskers?: { id: string; name: string; status?: string }[];
+  taskers?: { id: string; name: string; status?: string; hours?: number }[];
   totalHours: number;
 }
 
@@ -29,7 +29,11 @@ interface AccountDetailProps {
   onAddProject: () => void;
   onEditProject: (project: ProjectData) => void;
   onRemoveProject: (project: ProjectData) => void;
-  onToggleTaskerStatus?: (taskerId: string, newStatus: string) => void;
+  onToggleTaskerStatus?: (
+    projectId: string,
+    taskerId: string,
+    newStatus: string,
+  ) => void;
 }
 
 /**
@@ -219,22 +223,36 @@ export function AccountDetail({
                 <div className="w-[100px] shrink-0 hidden sm:flex flex-col gap-2 items-center">
                   {taskersList.length > 0 ? (
                     taskersList.map((t, ti) => {
-                      const isActive = t.status !== 'Inactive' && t.status !== 'Archived';
+                      const isActive = t.status === 'active';
+                      const label =
+                        t.status === 'achieved'
+                          ? 'Achieved'
+                          : t.status === 'disqualified'
+                            ? 'Disqualified'
+                            : t.status === 'removed'
+                              ? 'Removed'
+                              : isActive
+                                ? 'Active'
+                                : 'Inactive';
                       return (
                         <div key={ti} className="h-8 flex items-center justify-center">
                           <button
                             onClick={() => {
-                              if (onToggleTaskerStatus) {
-                                onToggleTaskerStatus(t.id, isActive ? 'Inactive' : 'Active');
+                              if (onToggleTaskerStatus && project.id) {
+                                onToggleTaskerStatus(
+                                  project.id,
+                                  t.id,
+                                  isActive ? 'inactive' : 'active',
+                                );
                               }
                             }}
                             className={`inline-flex items-center px-2.5 py-1 rounded-md text-[11px] font-semibold uppercase tracking-wider cursor-pointer transition-colors w-fit border ${
                               isActive
                                 ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
-                                : 'bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100'
+                                : 'bg-zinc-100 text-zinc-600 border-zinc-200 hover:bg-zinc-200'
                             }`}
                           >
-                            {isActive ? 'Active' : 'Archived'}
+                            {label}
                           </button>
                         </div>
                       );
@@ -246,9 +264,20 @@ export function AccountDetail({
                   )}
                 </div>
 
-                {/* Hours */}
-                <div className="w-[80px] shrink-0 text-stone-700 text-sm font-medium leading-6 hidden sm:flex justify-center pt-1">
-                  {project.totalHours}
+                {/* Hours per tasker */}
+                <div className="w-[80px] shrink-0 hidden sm:flex flex-col gap-2 items-center pt-1">
+                  {taskersList.length > 0 ? (
+                    taskersList.map((t, ti) => (
+                      <div
+                        key={ti}
+                        className="h-8 flex items-center justify-center text-stone-700 text-sm font-medium"
+                      >
+                        {t.hours ?? 0}
+                      </div>
+                    ))
+                  ) : (
+                    <div className="text-stone-400 text-sm">0</div>
+                  )}
                 </div>
 
                 {/* Menu */}

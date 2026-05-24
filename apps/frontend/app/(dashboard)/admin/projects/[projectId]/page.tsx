@@ -1,12 +1,12 @@
 "use client";
 /**
  * Project Details Page
- * Project detail view with info, taskers assigned, timeline, edit/delete actions.
+ * Project detail view with info, accounts on the project, edit actions.
  */
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { getProjectById, updateProject, Project } from '../../../../../services/project-service';
-import { ArrowLeft, Loader2, Calendar, Users, Briefcase, Link as LinkIcon, DollarSign, Edit } from 'lucide-react';
+import { ArrowLeft, Loader2, Calendar, Building2, Briefcase, Link as LinkIcon, DollarSign, Edit } from 'lucide-react';
 import { EditProjectModal } from '../../../../../components/projects/edit-project-modal';
 import toast from 'react-hot-toast';
 
@@ -60,6 +60,13 @@ export default function ProjectDetailsPage({ params }: { params: Promise<{ proje
       </div>
     );
   }
+
+  const projectAccounts =
+    project.accounts?.length > 0
+      ? project.accounts
+      : project.account
+        ? [project.account]
+        : [];
 
   return (
     <div className="flex-1 flex flex-col gap-6 w-full max-w-5xl mx-auto">
@@ -126,36 +133,32 @@ export default function ProjectDetailsPage({ params }: { params: Promise<{ proje
               </div>
             )}
 
-            {project.account && (
-              <div className="col-span-2 mt-2">
-                <div className="text-xs font-medium text-stone-500 mb-1">Associated Account</div>
-                <div className="text-sm text-stone-900 font-medium">{project.account.name}</div>
-              </div>
-            )}
           </div>
         </div>
 
         <div className="bg-white p-6 rounded-xl border border-zinc-200 shadow-sm flex flex-col gap-4">
           <h3 className="font-semibold text-stone-900 border-b border-zinc-100 pb-3 flex items-center gap-2">
-            <Users className="w-4 h-4 text-indigo-500" /> Assigned Taskers
+            <Building2 className="w-4 h-4 text-indigo-500" /> Account on Project
           </h3>
 
           <div className="flex flex-col gap-3">
-            {project.taskers && project.taskers.length > 0 ? (
-              project.taskers.map((t: any) => (
-                <div key={t.id} className="flex items-center gap-3 p-2 rounded-lg border border-zinc-100 bg-zinc-50/50">
+            {projectAccounts.length > 0 ? (
+              projectAccounts.map((a: { id: string; name: string; email?: string; status?: string }) => (
+                <div key={a.id} className="flex items-center gap-3 p-2 rounded-lg border border-zinc-100 bg-zinc-50/50">
                   <div className="w-8 h-8 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center font-bold text-xs">
-                    {t.firstName?.charAt(0) || t.user?.email?.charAt(0) || 'T'}
+                    {a.name?.charAt(0) || 'A'}
                   </div>
-                  <div className="flex flex-col">
-                    <span className="text-sm font-medium text-stone-900">
-                      {t.firstName ? `${t.firstName} ${t.lastName}` : (t.user?.email || 'Unknown Tasker')}
-                    </span>
+                  <div className="flex flex-col min-w-0">
+                    <span className="text-sm font-medium text-stone-900 truncate">{a.name}</span>
+                    {a.email && <span className="text-xs text-stone-500 truncate">{a.email}</span>}
+                    {a.status && (
+                      <span className="text-xs text-stone-400 capitalize mt-0.5">{a.status}</span>
+                    )}
                   </div>
                 </div>
               ))
             ) : (
-              <div className="text-sm text-stone-500 py-2">No taskers assigned yet.</div>
+              <div className="text-sm text-stone-500 py-2">No account assigned to this project yet.</div>
             )}
           </div>
         </div>

@@ -15,6 +15,7 @@ import {
 } from 'typeorm';
 import { TaskerEntity } from '../../taskers/entities/tasker.entity';
 import { ProjectEntity } from '../../projects/entities/project.entity';
+import { AccountEntity } from '../../accounts/entities/account.entity';
 import { UserEntity } from '../../users/entities/user.entity';
 import { TimesheetEntryEntity } from './timesheet-entry.entity';
 
@@ -28,6 +29,9 @@ export class TimesheetEntity {
 
   @Column({ name: 'project_id' })
   projectId: string;
+
+  @Column({ name: 'account_id', nullable: true })
+  accountId: string;
 
   @Column({ name: 'week_starting', type: 'date' })
   weekStarting: Date;
@@ -66,6 +70,10 @@ export class TimesheetEntity {
   @ManyToOne(() => ProjectEntity, (project) => project.timesheets)
   @JoinColumn({ name: 'project_id' })
   project: ProjectEntity;
+
+  @ManyToOne(() => AccountEntity, { nullable: true })
+  @JoinColumn({ name: 'account_id' })
+  account: AccountEntity;
 
   @ManyToOne(() => UserEntity, { nullable: true })
   @JoinColumn({ name: 'approved_by' })

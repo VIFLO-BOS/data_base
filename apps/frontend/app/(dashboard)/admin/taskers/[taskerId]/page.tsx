@@ -25,7 +25,16 @@ export default function TaskerDetailsPage({ params }: { params: Promise<{ tasker
 
   // Form states
   const [paymentForm, setPaymentForm] = useState({ amount: '', date: '', time: '', projectId: '' });
-  const [hoursForm, setHoursForm] = useState({ hours: '', date: '', casualties: '', projectId: '' });
+  const [hoursForm, setHoursForm] = useState({
+    hours: '',
+    date: '',
+    casualties: '',
+    projectId: '',
+    accountId: '',
+  });
+  const [workContexts, setWorkContexts] = useState<
+    { accountId: string; projectId: string; label: string }[]
+  >([]);
 
   // Inline Edit states
   const [isEditingContact, setIsEditingContact] = useState(false);
@@ -41,16 +50,8 @@ export default function TaskerDetailsPage({ params }: { params: Promise<{ tasker
 
   async function fetchAllProjects() {
     try {
-      const data = await getProjects(1, 100);
-      let arr = [];
-      if (Array.isArray(data)) {
-        arr = data;
-      } else if (data && Array.isArray((data as any).data)) {
-        arr = (data as any).data;
-      } else if (data && (data as any).data && Array.isArray((data as any).data.data)) {
-        arr = (data as any).data.data;
-      }
-      setAllProjects(arr);
+      const list = await getProjects(1, 100);
+      setAllProjects(list);
     } catch (e) {
       console.error(e);
       setAllProjects([]);
@@ -60,9 +61,35 @@ export default function TaskerDetailsPage({ params }: { params: Promise<{ tasker
   async function fetchTasker() {
     setIsLoading(true);
     try {
-      const response = await getTaskerById(taskerId);
-      const data = (response as any).data || response;
+      const data = await getTaskerById(taskerId);
       setTasker(data);
+      const contexts: { accountId: string; projectId: string; label: string }[] = [];
+      for (const p of data.projects || []) {
+        for (const a of p.accounts || []) {
+          contexts.push({
+            accountId: a.id,
+            projectId: p.id,
+            label: `${a.name} — ${p.name}`,
+          });
+        }
+      }
+      for (const ts of data.timesheets || []) {
+        if (ts.accountId && ts.projectId) {
+          const label = `${ts.account?.name || 'Account'} — ${ts.project?.name || 'Project'}`;
+          if (
+            !contexts.some(
+              (c) => c.accountId === ts.accountId && c.projectId === ts.projectId,
+            )
+          ) {
+            contexts.push({
+              accountId: ts.accountId,
+              projectId: ts.projectId,
+              label,
+            });
+          }
+        }
+      }
+      setWorkContexts(contexts);
       setContactForm({ email: data.email || '', phone: data.phone || '' });
       setBankForm({ bankName: data.bankName || '', accountName: data.accountName || '', accountNumber: data.accountNumber || '' });
     } catch (e) {
@@ -106,12 +133,17 @@ export default function TaskerDetailsPage({ params }: { params: Promise<{ tasker
     e.preventDefault();
     if (!tasker) return;
     try {
+      if (!hoursForm.accountId || !hoursForm.projectId) {
+        toast.error('Select an account and project');
+        return;
+      }
       if (editingHourId) {
         await updateTaskerDailyHour(tasker.id, editingHourId, {
           hours: parseFloat(hoursForm.hours),
           date: hoursForm.date,
           casualties: hoursForm.casualties,
-          projectId: hoursForm.projectId || undefined,
+          projectId: hoursForm.projectId,
+          accountId: hoursForm.accountId,
         });
         toast.success('Hours updated successfully');
       } else {
@@ -119,13 +151,14 @@ export default function TaskerDetailsPage({ params }: { params: Promise<{ tasker
           hours: parseFloat(hoursForm.hours),
           date: hoursForm.date,
           casualties: hoursForm.casualties,
-          projectId: hoursForm.projectId || undefined,
+          projectId: hoursForm.projectId,
+          accountId: hoursForm.accountId,
         });
         toast.success('Hours logged successfully');
       }
       setIsHoursModalOpen(false);
       setEditingHourId(null);
-      setHoursForm({ hours: '', date: '', casualties: '', projectId: '' });
+      setHoursForm({ hours: '', date: '', casualties: '', projectId: '', accountId: '' });
       fetchTasker();
     } catch (err) {
       toast.error(getErrorMessage(err) || 'Failed to save hours');
@@ -181,8 +214,10 @@ export default function TaskerDetailsPage({ params }: { params: Promise<{ tasker
       date: entry.entryDate,
       hours: entry.hoursWorked,
       casualties: entry.taskDescription,
-      projectId: ts.project?.id || null,
+      projectId: ts.project?.id || ts.projectId || null,
+      accountId: ts.account?.id || ts.accountId || null,
       project: ts.project,
+      account: ts.account,
     }));
   }).sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime());
   const projects = tasker.projects || [];
@@ -384,7 +419,7 @@ export default function TaskerDetailsPage({ params }: { params: Promise<{ tasker
               <button 
                 onClick={() => {
                   setEditingHourId(null);
-                  setHoursForm({ hours: '', date: '', casualties: '', projectId: '' });
+                  setHoursForm({ hours: '', date: '', casualties: '', projectId: '', accountId: '' });
                   setIsHoursModalOpen(true);
                 }}
                 className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 rounded-md text-sm font-medium transition-colors cursor-pointer"
@@ -421,7 +456,8 @@ export default function TaskerDetailsPage({ params }: { params: Promise<{ tasker
                                 hours: h.hours.toString(),
                                 date: d.toISOString().split('T')[0],
                                 casualties: h.casualties || '',
-                                projectId: h.projectId || ''
+                                projectId: h.projectId || '',
+                                accountId: h.accountId || '',
                               });
                               setEditingHourId(h.id);
                               setIsHoursModalOpen(true);
@@ -501,10 +537,26 @@ export default function TaskerDetailsPage({ params }: { params: Promise<{ tasker
                 </div>
               </div>
               <div className="flex flex-col gap-1.5">
-                <label className="text-sm font-medium text-stone-700">Project (Optional)</label>
-                <select value={hoursForm.projectId} onChange={e => setHoursForm({...hoursForm, projectId: e.target.value})} className="h-10 px-3 border border-zinc-300 rounded-lg outline-none focus:border-indigo-500 bg-white text-stone-900">
-                  <option value="">General / No Project</option>
-                  {allProjects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                <label className="text-sm font-medium text-stone-700">Account & Project</label>
+                <select
+                  required
+                  value={
+                    hoursForm.accountId && hoursForm.projectId
+                      ? `${hoursForm.accountId}:${hoursForm.projectId}`
+                      : ''
+                  }
+                  onChange={(e) => {
+                    const [accountId, projectId] = e.target.value.split(':');
+                    setHoursForm({ ...hoursForm, accountId, projectId });
+                  }}
+                  className="h-10 px-3 border border-zinc-300 rounded-lg outline-none focus:border-indigo-500 bg-white text-stone-900"
+                >
+                  <option value="">Select account and project</option>
+                  {workContexts.map((c) => (
+                    <option key={`${c.accountId}:${c.projectId}`} value={`${c.accountId}:${c.projectId}`}>
+                      {c.label}
+                    </option>
+                  ))}
                 </select>
               </div>
               <div className="flex flex-col gap-1.5">

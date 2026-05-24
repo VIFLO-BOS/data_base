@@ -7,7 +7,12 @@ import { TaskerSearchInput } from '../taskers/tasker-search-input';
 
 interface AddProjectModalProps {
   onClose: () => void;
-  onAdd: (data: { projectId?: string; projectName?: string; taskers: { id: string; name: string }[]; isNewProject: boolean }) => void;
+  onAdd: (data: {
+    projectId?: string;
+    projectName?: string;
+    taskers: { id: string; name: string }[];
+    isNewProject: boolean;
+  }) => void;
 }
 
 /**
@@ -18,7 +23,7 @@ export function AddProjectModal({ onClose, onAdd }: AddProjectModalProps) {
   const [projectId, setProjectId] = useState('');
   const [newProjectName, setNewProjectName] = useState('');
   const [isNewProject, setIsNewProject] = useState(false);
-  const [selectedTaskers, setSelectedTaskers] = useState<{id: string; name: string}[]>([]);
+  const [selectedTaskers, setSelectedTaskers] = useState<{ id: string; name: string }[]>([]);
   const [projectsList, setProjectsList] = useState<Project[]>([]);
   const [isLoadingProjects, setIsLoadingProjects] = useState(true);
 
@@ -26,8 +31,8 @@ export function AddProjectModal({ onClose, onAdd }: AddProjectModalProps) {
     async function loadProjects() {
       try {
         setIsLoadingProjects(true);
-        const response = await getProjects(1, 100);
-        setProjectsList((response as any).data?.data || []);
+        const list = await getProjects(1, 100);
+        setProjectsList(list);
       } catch (error) {
         console.error('Failed to fetch projects', error);
       } finally {
@@ -37,16 +42,14 @@ export function AddProjectModal({ onClose, onAdd }: AddProjectModalProps) {
     loadProjects();
   }, []);
 
-  const isValid = (isNewProject ? newProjectName.trim() !== '' : projectId !== '');
+  const isValid = isNewProject ? newProjectName.trim() !== '' : projectId !== '';
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/30">
       <div className="w-full max-w-[595px] p-6 bg-white rounded-xl border-0 shadow-sm/80 flex flex-col gap-4 animate-in fade-in zoom-in-95 duration-200">
         {/* Header */}
         <div className="pb-3 border-0 border-b shadow-[0_1px_2px_0_rgba(0,0,0,0.05)] flex justify-between items-center">
-          <h2 className="text-stone-900 text-2xl font-medium leading-6">
-            Add Project
-          </h2>
+          <h2 className="text-stone-900 text-2xl font-medium leading-6">Add Project</h2>
           <button
             onClick={onClose}
             className="p-1.5 rounded-lg hover:bg-zinc-100 transition-colors cursor-pointer"
@@ -89,10 +92,12 @@ export function AddProjectModal({ onClose, onAdd }: AddProjectModalProps) {
                 className="w-full p-3 rounded-xl border-0 shadow-sm text-sm font-medium leading-6 appearance-none bg-white cursor-pointer text-stone-900 placeholder:text-stone-300 outline-none"
               >
                 <option value="" disabled>
-                  {isLoadingProjects ? "Loading projects..." : "Select Project"}
+                  {isLoadingProjects ? 'Loading projects...' : 'Select Project'}
                 </option>
                 {projectsList.map((p) => (
-                  <option key={p.id} value={p.id}>{p.name}</option>
+                  <option key={p.id} value={p.id}>
+                    {p.name}
+                  </option>
                 ))}
               </select>
               <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-500 pointer-events-none" />
@@ -101,7 +106,7 @@ export function AddProjectModal({ onClose, onAdd }: AddProjectModalProps) {
         </div>
 
         {/* Assigned Tasker(s) Autocomplete */}
-        <TaskerSearchInput 
+        <TaskerSearchInput
           selectedTaskers={selectedTaskers}
           onChange={setSelectedTaskers}
           placeholder="Search taskers"
@@ -111,12 +116,14 @@ export function AddProjectModal({ onClose, onAdd }: AddProjectModalProps) {
         <button
           onClick={() => {
             if (isValid) {
-              const pName = isNewProject ? newProjectName : projectsList.find(x => x.id === projectId)?.name || '';
-              onAdd({ 
-                projectId: isNewProject ? undefined : projectId, 
-                projectName: pName, 
+              const pName = isNewProject
+                ? newProjectName
+                : projectsList.find((x) => x.id === projectId)?.name || '';
+              onAdd({
+                projectId: isNewProject ? undefined : projectId,
+                projectName: pName,
                 taskers: selectedTaskers,
-                isNewProject
+                isNewProject,
               });
             }
           }}
@@ -133,4 +140,3 @@ export function AddProjectModal({ onClose, onAdd }: AddProjectModalProps) {
     </div>
   );
 }
-

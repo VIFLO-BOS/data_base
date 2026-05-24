@@ -1,14 +1,15 @@
 'use client';
 
-import React, { useState,useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import { useRefreshOnFocus, notifyDataMutated } from '../../../../hooks/use-refresh-on-focus';
 import { ProjectsHeader } from '../../../../components/projects/projects-header';
 import { SearchBar } from '../../../../components/projects/search-bar';
 import { EmptyState } from '../../../../components/projects/empty-state';
 import { NewProjectModal } from '../../../../components/projects/new-project-modal';
 import { ProjectSuccessModal } from '../../../../components/projects/project-success-modal';
 import { ProjectList } from '../../../../components/projects/project-list';
-import { getProjects, createProject, deleteProject, Project } from '../../../../services/project-service';
+import { getProjects, createProject, deleteProject, deleteProjectPermanently, Project } from '../../../../services/project-service';
 import { Loader2 } from 'lucide-react';
 
 export default function ProjectsPage() {
@@ -18,21 +19,19 @@ export default function ProjectsPage() {
   const [isNewProjectOpen, setIsNewProjectOpen] = useState(false);
   const [isSuccessOpen, setIsSuccessOpen] = useState(false);
 
-  useEffect(() => {
-    fetchProjects();
-  }, []);
-
-  const fetchProjects = async () => {
+  const fetchProjects = useCallback(async () => {
     setIsLoading(true);
     try {
-      const response: any = await getProjects();
-      setProjects(response?.data || []);
+      const list = await getProjects();
+      setProjects(list);
     } catch (error) {
       console.error("Failed to fetch projects:", error);
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
+
+  useRefreshOnFocus(fetchProjects);
 
   const mappedProjects = projects.map((p: any) => ({
     id: p.id,
@@ -52,6 +51,7 @@ export default function ProjectsPage() {
         pricePerHour: newProject.pricePerHour,
       });
       fetchProjects();
+      notifyDataMutated();
       setIsNewProjectOpen(false);
       setIsSuccessOpen(true);
     } catch (error) {
@@ -60,9 +60,11 @@ export default function ProjectsPage() {
   };
 
   const handleDeleteProject = async (projectId: string) => {
+    if (!confirm('Permanently delete project? This cannot be undone.')) return;
     try {
-      await deleteProject(projectId);
+      await deleteProjectPermanently(projectId);
       fetchProjects();
+      notifyDataMutated();
     } catch (error) {
       console.error("Failed to delete project:", error);
     }

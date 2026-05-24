@@ -17,6 +17,7 @@ import {
 import { UserEntity } from '../../users/entities/user.entity';
 import { AccountEntity } from '../../accounts/entities/account.entity';
 import { TaskerEntity } from '../../taskers/entities/tasker.entity';
+import { ProjectAccountEntity } from '../../assignments/entities/project-account.entity';
 
 @Entity('projects')
 export class ProjectEntity {
@@ -63,13 +64,11 @@ export class ProjectEntity {
   @JoinColumn({ name: 'created_by' })
   creator: UserEntity;
 
-  @ManyToMany(() => AccountEntity, (account) => account.projects)
-  @JoinTable({
-    name: 'project_accounts',
-    joinColumn: { name: 'project_id', referencedColumnName: 'id' },
-    inverseJoinColumn: { name: 'account_id', referencedColumnName: 'id' },
-  })
-  accounts: AccountEntity[];
+  @OneToMany(() => ProjectAccountEntity, (pa) => pa.project)
+  projectAccounts: ProjectAccountEntity[];
+
+  /** Active accounts linked via project_accounts (populated in services). */
+  accounts?: AccountEntity[];
 
   @ManyToMany(() => TaskerEntity, (tasker) => tasker.projects)
   @JoinTable({

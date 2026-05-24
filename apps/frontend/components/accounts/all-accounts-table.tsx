@@ -17,9 +17,8 @@ function ProjectDropdown({ value }: { value: string }) {
     async function fetchProjects() {
       try {
         const { getProjects } = await import('../../services/project-service');
-        const res = await getProjects(1, 100);
-        const data = (res as any).data?.data || [];
-        setProjects(['All Projects', ...data.map((p: any) => p.name)]);
+        const list = await getProjects(1, 100);
+        setProjects(['All Projects', ...list.map((p) => p.name)]);
       } catch (e) {
         console.error(e);
       }
@@ -44,14 +43,19 @@ function ProjectDropdown({ value }: { value: string }) {
         }`}
       >
         <span className="text-stone-900 text-sm font-medium">{selected}</span>
-        <ChevronDown className={`w-4 h-4 text-zinc-400 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
+        <ChevronDown
+          className={`w-4 h-4 text-zinc-400 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`}
+        />
       </button>
       {isOpen && (
         <div className="absolute right-0 top-full mt-1.5 min-w-[180px] bg-white rounded-lg shadow-lg border border-zinc-200 py-1 z-50">
           {projects.map((project) => (
             <button
               key={project}
-              onClick={() => { setSelected(project); setIsOpen(false); }}
+              onClick={() => {
+                setSelected(project);
+                setIsOpen(false);
+              }}
               className={`w-full px-3 py-2 text-left text-sm font-medium transition-colors hover:bg-zinc-50 ${
                 project === selected ? 'text-indigo-600 bg-indigo-50' : 'text-stone-700'
               }`}
@@ -83,6 +87,7 @@ interface AllAccountsTableProps {
   onEdit?: (account: AccountRowData) => void;
   onArchive?: (account: AccountRowData) => void;
   onUnarchive?: (account: AccountRowData) => void;
+  onDelete?: (account: AccountRowData) => void;
 }
 
 /**
@@ -99,6 +104,7 @@ export function AllAccountsTable({
   onEdit,
   onArchive,
   onUnarchive,
+  onDelete,
 }: AllAccountsTableProps) {
   const [openMenuIndex, setOpenMenuIndex] = useState<number | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -123,6 +129,7 @@ export function AllAccountsTable({
           { label: 'View', action: () => onView?.(account) },
           { label: 'Edit', action: () => onEdit?.(account) },
           { label: 'Unarchive', action: () => onUnarchive?.(account) },
+          { label: 'Delete Permanently', action: () => onDelete?.(account) },
         ];
       }
       return [
@@ -142,6 +149,7 @@ export function AllAccountsTable({
       { label: 'View', action: () => onView?.(account) },
       { label: 'Edit', action: () => onEdit?.(account) },
       { label: 'Unarchive', action: () => onUnarchive?.(account) },
+      { label: 'Delete Permanently', action: () => onDelete?.(account) },
     ];
   }
 
@@ -150,13 +158,9 @@ export function AllAccountsTable({
       {/* Table Header with filter */}
       <div className="self-stretch pb-3 border-0 border-b shadow-[0_1px_2px_0_rgba(0,0,0,0.05)] flex justify-between items-center">
         <div className="flex items-center gap-2">
-          <span className="text-stone-900 text-base font-medium leading-6">
-            {filterLabel}
-          </span>
+          <span className="text-stone-900 text-base font-medium leading-6">{filterLabel}</span>
           <div className="px-2.5 py-1 bg-indigo-50 rounded-full flex justify-center items-center ring-1 ring-indigo-100">
-            <span className="text-indigo-600 text-xs font-semibold tabular-nums">
-              {totalCount}
-            </span>
+            <span className="text-indigo-600 text-xs font-semibold tabular-nums">{totalCount}</span>
           </div>
         </div>
         <ProjectDropdown value={projectFilter} />
@@ -166,9 +170,7 @@ export function AllAccountsTable({
       <div className="self-stretch flex flex-col gap-0">
         {/* Column Headers */}
         <div className="self-stretch pb-3 border-0 border-b shadow-[0_1px_2px_0_rgba(0,0,0,0.05)] flex items-center">
-          <div className="flex-1 text-zinc-500 text-sm font-medium leading-6">
-            Account Name
-          </div>
+          <div className="flex-1 text-zinc-500 text-sm font-medium leading-6">Account Name</div>
           <div className="flex-1 text-zinc-500 text-sm font-medium leading-6 hidden sm:block">
             Assigned Tasker
           </div>
@@ -185,9 +187,7 @@ export function AllAccountsTable({
             className="self-stretch py-3 border-0 border-b shadow-[0_1px_2px_0_rgba(0,0,0,0.05)] flex items-center"
           >
             <div className="flex-1 flex items-center gap-2">
-              <span className="text-stone-900 text-sm font-medium leading-6">
-                {account.name}
-              </span>
+              <span className="text-stone-900 text-sm font-medium leading-6">{account.name}</span>
               {account.isArchived && activeTab === 'All' && (
                 <span className="px-3 py-0.5 bg-indigo-600/10 rounded-lg text-indigo-600 text-xs font-medium leading-5">
                   Archived
@@ -234,4 +234,3 @@ export function AllAccountsTable({
     </div>
   );
 }
-

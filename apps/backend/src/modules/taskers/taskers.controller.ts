@@ -70,6 +70,13 @@ export class TaskersController {
     return this.taskersService.delete(id);
   }
 
+  @Delete(':id/permanent')
+  @Roles('admin', 'super_admin')
+  @ApiOperation({ summary: 'Permanently delete tasker' })
+  removePermanently(@Param('id') id: string) {
+    return this.taskersService.delete(id);
+  }
+
   @Post(':id/payments')
   @Roles('admin', 'super_admin')
   @ApiOperation({ summary: 'Add a payment to a tasker' })

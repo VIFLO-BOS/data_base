@@ -10,11 +10,12 @@ import {
   CreateDateColumn,
   UpdateDateColumn,
   ManyToOne,
-  ManyToMany,
+  OneToMany,
   JoinColumn,
 } from 'typeorm';
 import { UserEntity } from '../../users/entities/user.entity';
 import { ProjectEntity } from '../../projects/entities/project.entity';
+import { ProjectAccountEntity } from '../../assignments/entities/project-account.entity';
 
 @Entity('accounts')
 export class AccountEntity {
@@ -49,8 +50,11 @@ export class AccountEntity {
   @JoinColumn({ name: 'owner_id' })
   owner: UserEntity;
 
-  @ManyToMany(() => ProjectEntity, (project) => project.accounts)
-  projects: ProjectEntity[];
+  @OneToMany(() => ProjectAccountEntity, (pa) => pa.account)
+  projectAccounts: ProjectAccountEntity[];
+
+  /** Linked projects (populated in services). */
+  projects?: ProjectEntity[];
 
   totalHours?: number;
 }

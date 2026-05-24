@@ -18,11 +18,12 @@ export interface Account {
   updatedAt: string;
 }
 
-export async function getAccounts(page = 1, limit = 20) {
+export async function getAccounts(page = 1, limit = 20): Promise<Account[]> {
   const { data } = await apiClient.get<any>('/accounts', {
     params: { page, limit },
   });
-  return data.data;
+  const payload = data.data;
+  return Array.isArray(payload) ? payload : (payload?.data ?? []);
 }
 
 export async function getAccountById(id: string) {
@@ -42,5 +43,10 @@ export async function updateAccount(id: string, payload: Partial<Account>) {
 
 export async function deleteAccount(id: string) {
   const { data } = await apiClient.delete<any>(`/accounts/${id}`);
+  return data.data;
+}
+
+export async function deleteAccountPermanently(id: string) {
+  const { data } = await apiClient.delete<any>(`/accounts/${id}/permanent`);
   return data.data;
 }

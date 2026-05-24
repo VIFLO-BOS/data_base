@@ -5,7 +5,6 @@
 import { apiClient } from './api-client';
 
 export interface DashboardSummary {
-  data(data: any): unknown;
   totalProjects: number;
   activeAccounts: number;
   activeTaskers: number;
@@ -27,6 +26,7 @@ export async function getDashboardSummary(period?: string, date?: string) {
   const params: Record<string, any> = {};
   if (period) params.period = period;
   if (date) params.date = date;
-  const { data } = await apiClient.get<DashboardSummary>('/dashboard-analytics/summary', { params });
-  return data;
+  const { data } = await apiClient.get<any>('/dashboard-analytics/summary', { params });
+  // Backend wraps in { data: { ... }, statusCode, timestamp } via TransformInterceptor
+  return data.data ?? data;
 }

@@ -87,11 +87,26 @@ export function TopBar({
             }`}
           >
             <div className="relative">
-              <img
-                className="w-9 h-9 rounded-full ring-2 ring-indigo-100 ring-offset-1 ring-offset-white object-cover"
-                src={avatarSrc}
-                alt={userName}
-              />
+              {avatarSrc ? (
+                <img
+                  className="w-9 h-9 rounded-full ring-2 ring-indigo-100 ring-offset-1 ring-offset-white object-cover"
+                  src={avatarSrc}
+                  alt={userName}
+                  onError={(e) => {
+                    // Fallback to initials if image fails to load
+                    (e.target as HTMLImageElement).style.display = 'none';
+                    if (e.target && (e.target as HTMLImageElement).nextElementSibling) {
+                      ((e.target as HTMLImageElement).nextElementSibling as HTMLElement).style.display = 'flex';
+                    }
+                  }}
+                />
+              ) : null}
+              <div
+                className="w-9 h-9 rounded-full ring-2 ring-indigo-100 ring-offset-1 ring-offset-white bg-indigo-50 text-indigo-600 font-semibold text-sm flex items-center justify-center uppercase"
+                style={{ display: avatarSrc ? 'none' : 'flex' }}
+              >
+                {userName ? userName.charAt(0) : 'U'}
+              </div>
               <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-emerald-500 rounded-full ring-2 ring-white" />
             </div>
             <div className="flex justify-start items-center gap-1.5">

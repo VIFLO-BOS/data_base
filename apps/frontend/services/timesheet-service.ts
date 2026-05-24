@@ -24,12 +24,32 @@ export interface TimesheetEntry {
   notes?: string;
 }
 
-export async function getTimesheets(page = 1, limit = 20, status?: string, weekStarting?: string) {
+export interface TimesheetRecord {
+  id: string;
+  taskerId: string;
+  projectId: string;
+  accountId?: string;
+  status: string;
+  totalHours: number;
+  weekStarting?: string;
+  tasker?: any;
+  project?: any;
+  account?: { id: string; name: string };
+  entries?: any[];
+}
+
+export async function getTimesheets(
+  page = 1,
+  limit = 20,
+  status?: string,
+  weekStarting?: string,
+): Promise<TimesheetRecord[]> {
   const params: Record<string, any> = { page, limit };
   if (status) params.status = status;
   if (weekStarting) params.weekStarting = weekStarting;
-  const { data } = await apiClient.get<PaginatedResponse<Timesheet>>('/timesheets', { params });
-  return data;
+  const { data } = await apiClient.get<any>('/timesheets', { params });
+  const payload = data.data;
+  return Array.isArray(payload) ? payload : payload?.data ?? [];
 }
 
 export async function getTimesheetById(id: string) {

@@ -31,6 +31,7 @@ import { RolesModule } from './modules/roles/roles.module';
 import { PermissionsModule } from './modules/permissions/permissions.module';
 import { SupabaseModule } from './modules/supabase/supabase.module';
 import { HealthModule } from './modules/health/health.module';
+import { AssignmentsModule } from './modules/assignments/assignments.module';
 
 // Common providers
 import { APP_GUARD, APP_INTERCEPTOR, APP_FILTER } from '@nestjs/core';
@@ -82,6 +83,7 @@ import { HttpExceptionFilter } from './common/filters/http-exception.filter';
     PermissionsModule,
     SupabaseModule,
     HealthModule,
+    AssignmentsModule,
   ],
   providers: [
     // Global guards: JWT -> Roles -> Permissions (applied to every route)

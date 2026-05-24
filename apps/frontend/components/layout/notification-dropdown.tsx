@@ -99,7 +99,10 @@ export function NotificationDropdown() {
           {/* Header */}
           <div className="px-4 py-3 border-b border-zinc-100 flex justify-between items-center bg-zinc-50/50">
             <div>
-              <h3 className="text-stone-900 text-sm font-semibold tracking-tight">Notifications</h3>
+              <div className="flex items-center gap-2">
+                <h3 className="text-stone-900 text-sm font-semibold tracking-tight">Notifications</h3>
+                <span className="px-1.5 py-0.5 text-[10px] font-medium bg-amber-100 text-amber-700 rounded border border-amber-200 uppercase tracking-wider">Demo Data</span>
+              </div>
               <p className="text-zinc-500 text-xs mt-0.5">You have {unreadCount} unread messages</p>
             </div>
             {unreadCount > 0 && (

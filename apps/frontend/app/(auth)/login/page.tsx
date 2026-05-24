@@ -20,6 +20,7 @@ export default function LoginPage() {
     // When logging in, we just default to client if they don't exist, though backend assigns their existing role.
     if (typeof window !== 'undefined') {
       localStorage.setItem('oauth_role', 'client');
+      localStorage.setItem('remember_me', rememberMe ? 'true' : 'false');
     }
 
     const { error: authError } = await supabase.auth.signInWithOAuth({

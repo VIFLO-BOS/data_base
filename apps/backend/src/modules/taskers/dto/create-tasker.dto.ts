@@ -46,4 +46,24 @@ export class CreateTaskerDto {
   @IsString()
   @IsOptional()
   bio?: string;
+
+  @ApiPropertyOptional()
+  @IsString()
+  @IsOptional()
+  phone?: string;
+
+  @ApiPropertyOptional()
+  @IsString()
+  @IsOptional()
+  bankName?: string;
+
+  @ApiPropertyOptional()
+  @IsString()
+  @IsOptional()
+  accountName?: string;
+
+  @ApiPropertyOptional()
+  @IsString()
+  @IsOptional()
+  accountNumber?: string;
 }

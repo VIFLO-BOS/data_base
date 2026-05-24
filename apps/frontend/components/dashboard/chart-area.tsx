@@ -16,7 +16,7 @@ interface ChartAreaProps {
       accounts: number[];
       taskers: number[];
       hours: number[];
-    }
+    };
   };
 }
 
@@ -42,35 +42,40 @@ export function ChartArea({ labels, data }: ChartAreaProps) {
     stats.hoursToday > 0;
 
   // Use real backend chart data if available, otherwise fallback to mock
-  const realChartData = stats.chartData?.projects || [];
-  
+  const realChartData = stats.chartData?.hours || [];
+
   // Map labels to Recharts array structure
   const chartData = labels.map((label, index) => ({
     name: label,
     value: hasData ? (realChartData[index] ?? MOCK_CURVE[index % MOCK_CURVE.length]) : 0,
   }));
 
-  // Custom Recharts Tooltip matching original design
   const CustomTooltip = ({ active }: any) => {
     if (active) {
       return (
-        <div className="relative" style={{ animation: 'dropdownIn 0.15s ease-out' }}>
-          <div className="bg-gradient-to-br from-indigo-600 to-indigo-700 rounded-xl px-4 py-3 flex flex-col gap-1.5 shadow-xl shadow-indigo-600/25 min-w-[140px] backdrop-blur-sm">
-            <div className="text-center text-white text-xs font-semibold leading-4 pb-1 tracking-wide">
+        <div className="relative flex flex-col items-center">
+          <div className="bg-[#4F46E5] rounded-xl px-4 py-3 flex flex-col gap-1 shadow-lg shadow-indigo-500/20 min-w-[160px]">
+            <div className="text-center text-white text-[13px] font-medium leading-5">
               {stats.projects} Projects
             </div>
-            <div className="border-t border-white/15 pt-1.5 text-center text-white/90 text-xs font-medium leading-4">
+            <div className="text-center text-white text-[13px] font-medium leading-5">
               {stats.activeAccounts} Active Accounts
             </div>
-            <div className="border-t border-white/15 pt-1.5 text-center text-white/90 text-xs font-medium leading-4">
+            <div className="text-center text-white text-[13px] font-medium leading-5">
               {stats.activeTaskers} Active Taskers
             </div>
-            <div className="border-t border-white/15 pt-1.5 text-center text-white/90 text-xs font-medium leading-4">
+            <div className="text-center text-white text-[13px] font-medium leading-5">
               {stats.hoursToday} Hrs Today
             </div>
           </div>
           {/* Arrow pointing down */}
-          <div className="absolute -bottom-[5px] left-1/2 -translate-x-1/2 w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-t-[6px] border-t-indigo-700" />
+          <div className="w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-t-[6px] border-t-[#4F46E5]" />
+
+          {/* Custom vertical line and dot for the active point */}
+          <div className="absolute top-full flex flex-col items-center translate-y-[-6px]">
+            <div className="w-4 h-4 rounded-full bg-white border-[4px] border-[#4F46E5] z-10 shadow-sm" />
+            <div className="w-[1px] h-32 bg-gradient-to-b from-[#4F46E5]/40 to-transparent" />
+          </div>
         </div>
       );
     }
@@ -78,10 +83,10 @@ export function ChartArea({ labels, data }: ChartAreaProps) {
   };
 
   return (
-    <div className="self-stretch bg-white rounded-2xl shadow-sm border-0 flex flex-col gap-2 overflow-hidden pt-6 pb-2 ring-1 ring-zinc-100">
-      <div className="w-full aspect-[2/1] sm:aspect-[5/2] min-h-[180px] max-h-[300px]">
+    <div className="self-stretch bg-white rounded-2xl shadow-sm border-0 flex flex-col gap-2 pt-6 pb-2 ring-1 ring-zinc-100">
+      <div className="w-full aspect-[2/1] sm:aspect-[5/2] min-h-[180px] max-h-[300px] overflow-visible">
         <ResponsiveContainer width="100%" height="100%">
-          <AreaChart data={chartData} margin={{ top: 10, right: 20, left: 20, bottom: 0 }}>
+          <AreaChart data={chartData} margin={{ top: 60, right: 20, left: 20, bottom: 0 }}>
             <defs>
               <linearGradient id="chartGradient" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="0%" stopColor="#6366f1" stopOpacity={hasData ? 0.15 : 0.03} />
@@ -90,27 +95,28 @@ export function ChartArea({ labels, data }: ChartAreaProps) {
               </linearGradient>
             </defs>
             <CartesianGrid stroke="#f4f4f5" vertical={true} horizontal={false} strokeWidth={1} />
-            <XAxis 
-              dataKey="name" 
-              axisLine={false} 
-              tickLine={false} 
+            <XAxis
+              dataKey="name"
+              axisLine={false}
+              tickLine={false}
               tick={{ fill: '#a1a1aa', fontSize: 11, fontWeight: 500 }}
               dy={10}
             />
-            <Tooltip 
-              content={<CustomTooltip />} 
-              cursor={{ stroke: '#e4e4e7', strokeWidth: 1.5, strokeDasharray: '4 4' }}
+            <Tooltip
+              content={<CustomTooltip />}
+              cursor={false}
               animationDuration={200}
-              offset={15}
+              offset={10}
+              position={{ y: -80 }}
             />
             <Area
               type="monotone"
               dataKey="value"
-              stroke="#6366f1"
-              strokeWidth={2.5}
+              stroke="#4F46E5"
+              strokeWidth={3}
               fillOpacity={1}
               fill="url(#chartGradient)"
-              activeDot={{ r: 5, fill: '#6366f1', stroke: 'white', strokeWidth: 2.5 }}
+              activeDot={false}
               animationDuration={800}
               animationEasing="ease-out"
             />

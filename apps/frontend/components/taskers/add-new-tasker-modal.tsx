@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { X } from 'lucide-react';
 import { ProjectSearchInput } from '../projects/project-search-input';
+import { AccountSearchInput } from '../accounts/account-search-input';
 
 interface AddNewTaskerModalProps {
   onClose: () => void;
@@ -24,6 +25,7 @@ export function AddNewTaskerModal({ onClose, onSubmit }: AddNewTaskerModalProps)
   });
 
   const [selectedProjects, setSelectedProjects] = useState<{id: string; name: string}[]>([]);
+  const [selectedAccounts, setSelectedAccounts] = useState<{id: string; name: string}[]>([]);
 
   const isFormValid = formData.name.trim() !== '' && formData.email.trim() !== '';
 
@@ -34,7 +36,7 @@ export function AddNewTaskerModal({ onClose, onSubmit }: AddNewTaskerModalProps)
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (isFormValid) {
-      onSubmit({ ...formData, projects: selectedProjects });
+      onSubmit({ ...formData, projects: selectedProjects, accounts: selectedAccounts });
     }
   };
 
@@ -132,11 +134,17 @@ export function AddNewTaskerModal({ onClose, onSubmit }: AddNewTaskerModalProps)
             />
           </div>
 
-          {/* Row 5: Assign Projects */}
-          <ProjectSearchInput 
-            selectedProjects={selectedProjects}
-            onChange={setSelectedProjects}
-          />
+          {/* Row 5: Assign Projects & Accounts */}
+          <div className="flex flex-col gap-5">
+            <ProjectSearchInput 
+              selectedProjects={selectedProjects}
+              onChange={setSelectedProjects}
+            />
+            <AccountSearchInput 
+              selectedAccounts={selectedAccounts}
+              onChange={setSelectedAccounts}
+            />
+          </div>
 
           {/* Footer */}
           <div className="pt-4 border-t border-zinc-200 flex justify-end">

@@ -1,6 +1,8 @@
 'use client';
 
 import React, { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { useRefreshOnFocus, notifyDataMutated } from '../../../../hooks/use-refresh-on-focus';
 import { AccountsHeader } from '../../../../components/accounts/accounts-header';
 import { AccountsSearchFilter } from '../../../../components/accounts/accounts-search-filter';
 import { AllAccountsTable } from '../../../../components/accounts/all-accounts-table';
@@ -12,9 +14,24 @@ import { AccountSuccessModal } from '../../../../components/accounts/account-suc
 import { AccountDetail } from '../../../../components/accounts/account-detail';
 import { AddProjectModal } from '../../../../components/accounts/add-project-modal';
 import { EditProjectModal } from '../../../../components/accounts/edit-project-modal';
-import { getAccounts, createAccount, updateAccount, deleteAccount, Account } from '../../../../services/account-service';
-import { createProject, updateProject, deleteProject, assignAccountToProject, removeAccountFromProject } from '../../../../services/project-service';
-import { updateTasker } from '../../../../services/tasker-service';
+import {
+  getAccounts,
+  createAccount,
+  updateAccount,
+  deleteAccountPermanently,
+  Account,
+} from '../../../../services/account-service';
+import {
+  createProject,
+  updateProject,
+  deleteProject,
+  assignAccountToProject,
+  removeAccountFromProject,
+} from '../../../../services/project-service';
+import {
+  replaceAccountProjectTaskers,
+  updateAssignmentStatus,
+} from '../../../../services/assignment-service';
 import { Loader2 } from 'lucide-react';
 
 /**
@@ -22,64 +39,86 @@ import { Loader2 } from 'lucide-react';
  * Full accounts lifecycle: empty state → list (All/Active/Archived) → detail view.
  */
 export default function AccountsPage() {
+  const router = useRouter();
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  const mappedAccounts = accounts.map(a => {
+  const mappedAccounts = accounts.map((a) => {
     // Determine all taskers across all real projects for this account
     const allTaskers = Array.from(
       new Map(
         (a.projects || [])
           .flatMap((p: any) => (p.taskers || []).map((t: any) => ({ ...t, projectName: p.name })))
-          .map((t: any) => [t.id, t])
-      ).values()
+          .map((t: any) => [t.id, t]),
+      ).values(),
     );
-    const assignedTaskerStr = allTaskers.length > 0 
-      ? `${allTaskers.length} Tasker${allTaskers.length === 1 ? '' : 's'}`
-      : '0 Taskers';
+    const assignedTaskerStr =
+      allTaskers.length > 0
+        ? `${allTaskers.length} Tasker${allTaskers.length === 1 ? '' : 's'}`
+        : '0 Taskers';
 
     // To support legacy dummy data, we fall back to settings.projects if a.projects is empty
-    const renderProjects = a.projects && a.projects.length > 0 ? a.projects.map((p: any) => {
-      // Deduplicate taskers in case the backend query returns duplicates
-      const uniqueTaskers = p.taskers ? Array.from(new Map(p.taskers.map((t: any) => [t.id, t])).values()) : [];
-      return {
-        id: p.id,
-        name: p.name,
-        assignedTaskers: uniqueTaskers.map((t: any) => `${t.firstName} ${t.lastName}`).join(' & '),
-        totalHours: p.totalHours || 0,
-        taskers: uniqueTaskers.map((t: any) => ({ id: t.id, name: `${t.firstName} ${t.lastName}`, status: t.status }))
-      };
-    }) : (a.settings?.projects || []);
+    const renderProjects =
+      a.projects && a.projects.length > 0
+        ? a.projects.map((p: any) => {
+            const uniqueTaskers = p.taskers
+              ? Array.from(new Map(p.taskers.map((t: any) => [t.id, t])).values())
+              : [];
+            const taskerRows = uniqueTaskers.map((t: any) => ({
+              id: t.id,
+              name: `${t.firstName || ''} ${t.lastName || ''}`.trim() || t.email || 'Tasker',
+              status: t.assignmentStatus || t.status || 'active',
+              hours: Number(t.hours ?? 0),
+            }));
+            return {
+              id: p.id,
+              name: p.name,
+              assignedTaskers: taskerRows.map((t) => t.name).join(' & ') || 'No taskers',
+              totalHours: p.totalHours || 0,
+              taskers: taskerRows,
+            };
+          })
+        : [];
 
     return {
       ...a,
       assignedTasker: assignedTaskerStr,
       totalHours: a.totalHours || 0,
       isArchived: a.status === 'Inactive',
-      dateCreated: new Date(a.createdAt).toLocaleDateString('en-US', { weekday: 'short', month: 'long', day: 'numeric', year: 'numeric' }),
+      dateCreated: new Date(a.createdAt).toLocaleDateString('en-US', {
+        weekday: 'short',
+        month: 'long',
+        day: 'numeric',
+        year: 'numeric',
+      }),
       clientName: a.name,
-      totalTaskers: allTaskers.length || (a.settings?.projects?.reduce((acc: number, p: any) => acc + (p.assignedTaskers ? p.assignedTaskers.split(' & ').length : 0), 0) || 0),
+      totalTaskers:
+        allTaskers.length ||
+        a.settings?.projects?.reduce(
+          (acc: number, p: any) =>
+            acc + (p.assignedTaskers ? p.assignedTaskers.split(' & ').length : 0),
+          0,
+        ) ||
+        0,
       totalHoursLogged: a.totalHours || 0,
       projects: renderProjects,
       allTaskers: allTaskers,
     };
   });
 
-  React.useEffect(() => {
-    fetchAccounts();
-  }, []);
-
   const fetchAccounts = async () => {
     setIsLoading(true);
     try {
-      const response: any = await getAccounts(1, 100); // Fetch all for now
-      setAccounts(response?.data || []);
+      const list = await getAccounts(1, 100);
+      setAccounts(list);
     } catch (error) {
-      console.error("Failed to fetch accounts", error);
+      console.error('Failed to fetch accounts', error);
     } finally {
       setIsLoading(false);
     }
   };
+
+  useRefreshOnFocus(fetchAccounts);
 
   // --- UI State ---
   const [activeFilter, setActiveFilter] = useState('All');
@@ -100,12 +139,12 @@ export default function AccountsPage() {
     id?: string;
     name: string;
     assignedTaskers: string;
-    taskers?: {id: string; name: string}[];
+    taskers?: { id: string; name: string }[];
     totalHours: number;
   } | null>(null);
 
-  const selectedAccount = mappedAccounts.find(a => a.id === selectedAccountId) || null;
-  const editingAccount = mappedAccounts.find(a => a.id === editingAccountId) || null;
+  const selectedAccount = mappedAccounts.find((a) => a.id === selectedAccountId) || null;
+  const editingAccount = mappedAccounts.find((a) => a.id === editingAccountId) || null;
 
   // --- Filtering ---
   const filteredAccounts = mappedAccounts.filter((a) => {
@@ -132,7 +171,8 @@ export default function AccountsPage() {
     return mappedAccounts.length;
   }
 
-  const filters = mappedAccounts.length > 0 ? ['All', 'Active', 'Archived'] : ['Active', 'Inactive'];
+  const filters =
+    mappedAccounts.length > 0 ? ['All', 'Active', 'Archived'] : ['Active', 'Inactive'];
 
   // --- Handlers ---
   async function handleCreateAccount(data: {
@@ -141,37 +181,40 @@ export default function AccountsPage() {
     isNewProject: boolean;
     accountName: string;
     clientName: string;
-    taskers: {id: string; name: string}[];
+    taskers: { id: string; name: string }[];
   }) {
     try {
-      const response = await createAccount({ name: data.accountName, email: `${data.accountName.toLowerCase().replace(/\s/g, '')}@example.com` });
+      const response = await createAccount({
+        name: data.accountName,
+        email: `${data.accountName.toLowerCase().replace(/\s/g, '')}@example.com`,
+      });
       const newAccount = response as any;
-      
+
       let targetProjectId = data.projectId;
-      
+
       if (data.isNewProject && data.projectName) {
         const newProject = await createProject({
           name: data.projectName,
           description: `Created via Account ${newAccount.name}`,
-          taskerIds: data.taskers.map(t => t.id)
+          taskerIds: data.taskers.map((t) => t.id),
         });
         targetProjectId = (newProject as any).id || (newProject as any).data?.id;
       }
-      
+
       if (targetProjectId) {
-        // Assign the newly created account to the selected project
         const createdAccountId = newAccount.id || newAccount.data?.id;
         await assignAccountToProject(targetProjectId, createdAccountId);
-        
-        // Update the project's taskers if provided (for existing projects)
-        if (!data.isNewProject && data.taskers && data.taskers.length > 0) {
-          await updateProject(targetProjectId, {
-            taskerIds: data.taskers.map(t => t.id)
-          });
+        if (data.taskers?.length) {
+          await replaceAccountProjectTaskers(
+            createdAccountId,
+            targetProjectId,
+            data.taskers.map((t) => t.id),
+          );
         }
       }
 
       await fetchAccounts();
+      notifyDataMutated();
       setIsNewAccountOpen(false);
       setIsSuccessOpen(true);
     } catch (e) {
@@ -180,15 +223,27 @@ export default function AccountsPage() {
   }
 
   async function handleEditAccountSave(data: {
+    projectId: string;
     project: string;
     accountName: string;
     clientName: string;
-    taskers: {id: string; name: string}[];
+    taskers: { id: string; name: string }[];
   }) {
     if (editingAccount) {
       try {
         await updateAccount(editingAccount.id, { name: data.accountName });
+        
+        if (data.projectId) {
+          await assignAccountToProject(data.projectId, editingAccount.id);
+          await replaceAccountProjectTaskers(
+            editingAccount.id,
+            data.projectId,
+            data.taskers.map((t) => t.id),
+          );
+        }
+
         await fetchAccounts();
+        notifyDataMutated();
       } catch (e) {
         console.error(e);
       }
@@ -201,14 +256,34 @@ export default function AccountsPage() {
     try {
       await updateAccount(account.id, { status: 'Inactive' });
       await fetchAccounts();
-    } catch (e) { console.error(e); }
+      notifyDataMutated();
+    } catch (e) {
+      console.error(e);
+    }
   }
 
   async function handleUnarchive(account: any) {
     try {
       await updateAccount(account.id, { status: 'Active' });
       await fetchAccounts();
-    } catch (e) { console.error(e); }
+      notifyDataMutated();
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
+  async function handleDeleteAccount(account: any) {
+    if (!confirm(`Permanently delete account "${account.name}"? This cannot be undone.`)) return;
+    try {
+      setIsLoading(true);
+      await deleteAccountPermanently(account.id);
+      await fetchAccounts();
+      notifyDataMutated();
+    } catch (e) {
+      console.error('Failed to delete account', e);
+    } finally {
+      setIsLoading(false);
+    }
   }
 
   function handleView(account: any) {
@@ -220,56 +295,74 @@ export default function AccountsPage() {
     setIsEditAccountOpen(true);
   }
 
-  async function handleAddProjectToAccount(data: { projectId?: string; projectName?: string; taskers: {id: string; name: string}[]; isNewProject: boolean }) {
+  async function handleAddProjectToAccount(data: {
+    projectId?: string;
+    projectName?: string;
+    taskers: { id: string; name: string }[];
+    isNewProject: boolean;
+  }) {
     if (!selectedAccount) return;
     try {
       let targetProjectId = data.projectId;
-      
+
       // If the user elected to create a new project from the modal
       if (data.isNewProject && data.projectName) {
         const newProject = await createProject({
           name: data.projectName,
           description: `Created via Account ${selectedAccount.name}`,
-          taskerIds: data.taskers.map(t => t.id)
+          taskerIds: data.taskers.map((t) => t.id),
         });
         targetProjectId = (newProject as any).id || (newProject as any).data?.id;
       }
-      
+
       if (targetProjectId) {
         await assignAccountToProject(targetProjectId, selectedAccount.id);
-        
-        // If it was an existing project, we still need to update the taskers
-        if (!data.isNewProject && data.taskers && data.taskers.length > 0) {
-          await updateProject(targetProjectId, { 
-            taskerIds: data.taskers.map(t => t.id) 
-          });
+        if (data.taskers?.length) {
+          await replaceAccountProjectTaskers(
+            selectedAccount.id,
+            targetProjectId,
+            data.taskers.map((t) => t.id),
+          );
         }
       }
       await fetchAccounts();
-    } catch (e) { console.error(e); }
+    } catch (e) {
+      console.error(e);
+    }
     setIsAddProjectOpen(false);
   }
 
-  async function handleEditProjectSave(data: { project: string; taskers: {id: string; name: string}[] }) {
+  async function handleEditProjectSave(data: {
+    project: string;
+    taskers: { id: string; name: string }[];
+  }) {
     if (!selectedAccount || !editingProject) return;
     try {
       if (editingProject.id) {
-        await updateProject(editingProject.id, { 
-          name: data.project, 
-          taskerIds: data.taskers.map(t => t.id) 
-        });
+        await updateProject(editingProject.id, { name: data.project });
+        await replaceAccountProjectTaskers(
+          selectedAccount.id,
+          editingProject.id,
+          data.taskers.map((t) => t.id),
+        );
       } else {
         // Fallback for old dummy data
         const currentProjects = selectedAccount.projects || [];
-        const updatedProjects = currentProjects.map((p: any) => 
-          p.name === editingProject.name 
-            ? { ...p, name: data.project, assignedTaskers: data.taskers.map(t => t.name).join(' & ') }
-            : p
+        const updatedProjects = currentProjects.map((p: any) =>
+          p.name === editingProject.name
+            ? {
+                ...p,
+                name: data.project,
+                assignedTaskers: data.taskers.map((t) => t.name).join(' & '),
+              }
+            : p,
         );
         await updateAccount(selectedAccount.id, { settings: { projects: updatedProjects } } as any);
       }
       await fetchAccounts();
-    } catch (e) { console.error(e); }
+    } catch (e) {
+      console.error(e);
+    }
     setIsEditProjectOpen(false);
     setEditingProject(null);
   }
@@ -283,10 +376,14 @@ export default function AccountsPage() {
       } else {
         const currentProjects = selectedAccount.projects || [];
         const filteredProjects = currentProjects.filter((p: any) => p.name !== project.name);
-        await updateAccount(selectedAccount.id, { settings: { projects: filteredProjects } } as any);
+        await updateAccount(selectedAccount.id, {
+          settings: { projects: filteredProjects },
+        } as any);
       }
       await fetchAccounts();
-    } catch (e) { console.error(e); }
+    } catch (e) {
+      console.error(e);
+    }
   }
 
   // =============== RENDER ===============
@@ -311,7 +408,9 @@ export default function AccountsPage() {
             try {
               await updateAccount(selectedAccount.id, { status: 'Inactive' });
               await fetchAccounts();
-            } catch (e) { console.error(e); }
+            } catch (e) {
+              console.error(e);
+            }
             setSelectedAccountId(null);
           }}
           onAddProject={() => setIsAddProjectOpen(true)}
@@ -320,9 +419,10 @@ export default function AccountsPage() {
             setIsEditProjectOpen(true);
           }}
           onRemoveProject={handleRemoveProject}
-          onToggleTaskerStatus={async (taskId, status) => {
+          onToggleTaskerStatus={async (projectId, taskerId, status) => {
+            if (!selectedAccount) return;
             try {
-              await updateTasker(taskId, { status });
+              await updateAssignmentStatus(selectedAccount.id, projectId, taskerId, status as any);
               await fetchAccounts();
             } catch (e) {
               console.error(e);
@@ -378,7 +478,10 @@ export default function AccountsPage() {
     <div className="flex-1 flex flex-col gap-6 w-full">
       <div className="self-stretch p-6 bg-white rounded-xl shadow-md border-0 flex flex-col gap-4">
         {/* Header */}
-        <AccountsHeader count={mappedAccounts.length} onNewClick={() => setIsNewAccountOpen(true)} />
+        <AccountsHeader
+          count={mappedAccounts.length}
+          onNewClick={() => setIsNewAccountOpen(true)}
+        />
 
         {/* Search & Filter */}
         <AccountsSearchFilter
@@ -409,6 +512,7 @@ export default function AccountsPage() {
               onEdit={handleEditClick}
               onArchive={handleArchive}
               onUnarchive={handleUnarchive}
+              onDelete={handleDeleteAccount}
             />
 
             {/* Pagination */}
@@ -439,6 +543,7 @@ export default function AccountsPage() {
           }}
           onSave={handleEditAccountSave}
           initialData={{
+            projectId: editingAccount.projects?.[0]?.id || '',
             project: editingAccount.projects?.[0]?.name || 'Ventree',
             accountName: editingAccount.name,
             clientName: editingAccount.clientName || '',

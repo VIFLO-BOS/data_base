@@ -74,11 +74,24 @@ export class ProjectsController {
     return this.projectsService.delete(id);
   }
 
+  @Delete(':id/permanent')
+  @Roles('admin', 'super_admin')
+  @ApiOperation({
+    summary: 'Permanently delete a project and all related data',
+  })
+  removePermanently(@Param('id') id: string) {
+    return this.projectsService.removePermanently(id);
+  }
+
   @Post(':id/taskers/:taskerId')
   @Roles('admin', 'super_admin')
   @ApiOperation({ summary: 'Assign a tasker to a project' })
-  assignTasker(@Param('id') id: string, @Param('taskerId') taskerId: string) {
-    return this.projectsService.assignTasker(id, taskerId);
+  assignTasker(
+    @Param('id') id: string, 
+    @Param('taskerId') taskerId: string,
+    @Body('accountId') accountId?: string,
+  ) {
+    return this.projectsService.assignTasker(id, taskerId, accountId);
   }
 
   @Delete(':id/taskers/:taskerId')
@@ -91,14 +104,20 @@ export class ProjectsController {
   @Post(':id/accounts/:accountId')
   @Roles('admin', 'super_admin')
   @ApiOperation({ summary: 'Assign an account to a project' })
-  assignAccount(@Param('id') id: string, @Param('accountId') accountId: string) {
+  assignAccount(
+    @Param('id') id: string,
+    @Param('accountId') accountId: string,
+  ) {
     return this.projectsService.assignAccount(id, accountId);
   }
 
   @Delete(':id/accounts/:accountId')
   @Roles('admin', 'super_admin')
   @ApiOperation({ summary: 'Remove an account from a project' })
-  removeAccount(@Param('id') id: string, @Param('accountId') accountId: string) {
+  removeAccount(
+    @Param('id') id: string,
+    @Param('accountId') accountId: string,
+  ) {
     return this.projectsService.removeAccount(id, accountId);
   }
 }

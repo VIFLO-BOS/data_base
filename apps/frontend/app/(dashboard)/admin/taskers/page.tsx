@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
+import { useRefreshOnFocus, notifyDataMutated } from '../../../../hooks/use-refresh-on-focus';
 import { TaskersHeader } from '../../../../components/taskers/taskers-header';
 import { TaskersSearchFilter } from '../../../../components/taskers/taskers-search-filter';
 import { TaskersTable } from '../../../../components/taskers/taskers-table';
@@ -12,6 +13,7 @@ import {
   getTaskers,
   createTasker,
   updateTasker,
+  deleteTaskerPermanently,
   Tasker,
 } from '../../../../services/tasker-service';
 import { Loader2 } from 'lucide-react';
@@ -32,7 +34,8 @@ export default function TaskersPage() {
   const assignedTaskers = taskers
     .filter((t) => t.status !== 'Archived' && t.status !== 'Inactive' && t.status !== 'inactive')
     .map((t) => {
-      const allAccounts = t.projects?.flatMap((p: any) => p.accounts?.map((a: any) => a.name) || []) || [];
+      const allAccounts =
+        t.projects?.flatMap((p: any) => p.accounts?.map((a: any) => a.name) || []) || [];
       const accountNames = Array.from(new Set(allAccounts.filter(Boolean)));
       return {
         id: t.id,
@@ -44,7 +47,8 @@ export default function TaskersPage() {
   const archivedTaskers = taskers
     .filter((t) => t.status === 'Archived' || t.status === 'Inactive' || t.status === 'inactive')
     .map((t) => {
-      const allAccounts = t.projects?.flatMap((p: any) => p.accounts?.map((a: any) => a.name) || []) || [];
+      const allAccounts =
+        t.projects?.flatMap((p: any) => p.accounts?.map((a: any) => a.name) || []) || [];
       const accountNames = Array.from(new Set(allAccounts.filter(Boolean)));
       return {
         id: t.id,
@@ -59,21 +63,19 @@ export default function TaskersPage() {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingTasker, setEditingTasker] = useState<any>(null);
 
-  React.useEffect(() => {
-    fetchTaskers();
-  }, []);
-
-  const fetchTaskers = async () => {
+  const fetchTaskers = useCallback(async () => {
     setIsLoading(true);
     try {
-      const response = await getTaskers(1, 100);
-      setTaskers((response as any).data?.data || []);
+      const list = await getTaskers(1, 100);
+      setTaskers(list);
     } catch (error) {
       console.error('Failed to fetch taskers', error);
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
+
+  useRefreshOnFocus(fetchTaskers);
 
   const [activeFilter, setActiveFilter] = useState('Assigned');
   const [search, setSearch] = useState('');
@@ -99,11 +101,18 @@ export default function TaskersPage() {
 
       if (createdTaskerId && data.projects && data.projects.length > 0) {
         for (const p of data.projects) {
-          await assignTaskerToProject(p.id, createdTaskerId);
+          if (data.accounts && data.accounts.length > 0) {
+            for (const a of data.accounts) {
+              await assignTaskerToProject(p.id, createdTaskerId, a.id);
+            }
+          } else {
+            await assignTaskerToProject(p.id, createdTaskerId);
+          }
         }
       }
 
       await fetchTaskers();
+      notifyDataMutated();
       setIsAddModalOpen(false);
       setIsSuccessModalOpen(true);
     } catch (e) {
@@ -130,11 +139,18 @@ export default function TaskersPage() {
 
       if (data.projects && data.projects.length > 0) {
         for (const p of data.projects) {
-          await assignTaskerToProject(p.id, editingTasker.id);
+          if (data.accounts && data.accounts.length > 0) {
+            for (const a of data.accounts) {
+              await assignTaskerToProject(p.id, editingTasker.id, a.id);
+            }
+          } else {
+            await assignTaskerToProject(p.id, editingTasker.id);
+          }
         }
       }
 
       await fetchTaskers();
+      notifyDataMutated();
       setIsEditModalOpen(false);
     } catch (e) {
       console.error(e);
@@ -145,6 +161,7 @@ export default function TaskersPage() {
     try {
       await updateTasker(row.id, { status: 'Inactive' });
       await fetchTaskers();
+      notifyDataMutated();
     } catch (e) {
       console.error(e);
     }
@@ -154,8 +171,23 @@ export default function TaskersPage() {
     try {
       await updateTasker(row.id, { status: 'Active' });
       await fetchTaskers();
+      notifyDataMutated();
     } catch (e) {
       console.error(e);
+    }
+  };
+
+  const handleDeleteTasker = async (row: any) => {
+    if (!confirm(`Permanently delete tasker "${row.tasker}"? This cannot be undone.`)) return;
+    try {
+      setIsLoading(true);
+      await deleteTaskerPermanently(row.id);
+      await fetchTaskers();
+      notifyDataMutated();
+    } catch (e) {
+      console.error('Failed to delete tasker', e);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -241,6 +273,7 @@ export default function TaskersPage() {
                       onView={(row) => {
                         router.push(`/admin/taskers/${row.id}`);
                       }}
+                      onDelete={handleDeleteTasker}
                     />
                     <Pagination
                       currentPage={1}

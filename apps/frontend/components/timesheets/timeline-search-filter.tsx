@@ -28,9 +28,8 @@ export function TimelineSearchFilter({
     async function fetchProjects() {
       try {
         const { getProjects } = await import('../../services/project-service');
-        const res = await getProjects(1, 100);
-        const data = (res as any).data?.data || [];
-        setProjectsList(['All Projects', ...data.map((p: any) => p.name)]);
+        const list = await getProjects(1, 100);
+        setProjectsList(['All Projects', ...list.map((p) => p.name)]);
       } catch (e) {
         console.error(e);
       }

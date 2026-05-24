@@ -28,8 +28,8 @@ export function EditProjectModal({ onClose, onSave, initialData }: EditProjectMo
     async function loadProjects() {
       try {
         setIsLoadingProjects(true);
-        const response = await getProjects(1, 100);
-        setProjectsList((response as any).data?.data || []);
+        const list = await getProjects(1, 100);
+        setProjectsList(list);
       } catch (error) {
         console.error('Failed to fetch projects', error);
       } finally {

@@ -1,6 +1,8 @@
 'use client';
 
 import React, { useState, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
+import { useRefreshOnFocus, notifyDataMutated } from '../../../../hooks/use-refresh-on-focus';
 import { TimelineHeader } from '../../../../components/timesheets/timeline-header';
 import { OverviewFilter } from '../../../../components/dashboard/overview-filter';
 import { TimelineSearchFilter } from '../../../../components/timesheets/timeline-search-filter';
@@ -117,6 +119,7 @@ function getColumns(dateStr?: string, period: 'Day' | 'Week' | 'Month' | 'Year' 
 export default function TimesheetsPage() {
   const [timesheets, setTimesheets] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const router = useRouter();
 
   // Period filter state
   const [activePeriod, setActivePeriod] = useState<'Day' | 'Week' | 'Month' | 'Year' | 'All Time'>('All Time');
@@ -132,8 +135,7 @@ export default function TimesheetsPage() {
   const fetchTimesheets = useCallback(async (week?: string, period: string = 'Week') => {
     setIsLoading(true);
     try {
-      const response = await getTimesheets(1, 100, undefined, week);
-      const timesheetsData = (response as any).data?.data || [];
+      const timesheetsData = await getTimesheets(1, 100, undefined, week);
       const cols = getColumns(selectedDate, period as any).columns;
 
       const mapped = timesheetsData.map((t: any) => {
@@ -196,7 +198,8 @@ export default function TimesheetsPage() {
         return {
           id: t.id,
           tasker: taskerName,
-          account: t.project?.name || t.accountName || 'Unassigned',
+          account: t.account?.name || 'Unassigned',
+          project: t.project?.name || 'Unassigned',
           days,
           totalHours: totalHoursLabel,
           totalAmount: t.totalAmount || '$0.00',
@@ -205,8 +208,8 @@ export default function TimesheetsPage() {
         };
       });
 
-      // For week, we keep all because week queries the exact timesheet
-      const filteredMapped = period === 'Week' ? mapped : mapped.filter((r: any) => r.days.some((d: string) => d !== '--:--'));
+      // Show all taskers, including those with no hours logged yet
+      const filteredMapped = mapped;
 
       setTimesheets(filteredMapped);
     } catch (error) {
@@ -216,10 +219,11 @@ export default function TimesheetsPage() {
     }
   }, [selectedDate]);
 
-  // Fetch on initial load and when the selected period/date changes
-  React.useEffect(() => {
+  const fetchTimesheetsStable = useCallback(() => {
     fetchTimesheets(queryWeek, activePeriod);
   }, [queryWeek, activePeriod, fetchTimesheets]);
+
+  useRefreshOnFocus(fetchTimesheetsStable);
 
   // Payment Details Modal State
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
@@ -242,6 +246,7 @@ export default function TimesheetsPage() {
         const totalHours = Number(hours) + Number(minutes) / 60;
         await updateTimesheetEntry(editingCell.rowId, editingCell.date, totalHours);
         await fetchTimesheets(queryWeek, activePeriod);
+        notifyDataMutated();
       } catch (error) {
         console.error('Failed to update timesheet entry', error);
       }
@@ -298,9 +303,11 @@ export default function TimesheetsPage() {
                 <TimesheetTable
                   rows={timesheets}
                   dayColumns={dayColumns}
-                  onTimeCellClick={(row, dayIndex) => {
-                    handleTimeCellClick(row, dayIndex);
-                  }}
+                  onTimeCellClick={
+                    (activePeriod === 'Year' || activePeriod === 'All Time') 
+                      ? undefined 
+                      : (row, dayIndex) => handleTimeCellClick(row, dayIndex)
+                  }
                   onViewPaymentDetails={handleViewPaymentDetails}
                 />
 

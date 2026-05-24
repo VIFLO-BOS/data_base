@@ -9,6 +9,7 @@
     "target": "ES2021",
     "sourceMap": true,
     "outDir": "./dist",
+    "rootDir": "../..",
     "baseUrl": "./",
     "incremental": true,
     "skipLibCheck": true,
@@ -23,7 +24,9 @@
       "@config/*": ["src/config/*"],
       "@database/*": ["src/database/*"],
       "@modules/*": ["src/modules/*"],
-      "@annotator-platform/shared-rbac": ["../../packages/shared-rbac/src/index.ts"],
+      "@annotator-platform/shared-rbac": [
+        "../../packages/shared-rbac/src/index.ts"
+      ],
       "@annotator-platform/shared-rbac/*": ["../../packages/shared-rbac/*"]
     }
   }

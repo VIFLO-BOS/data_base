@@ -1,9 +1,12 @@
 /**
  * Taskers Service
- * TODO: Implement business logic for taskers.
  */
 
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { TaskerEntity } from './entities/tasker.entity';
@@ -12,6 +15,8 @@ import { CreateTaskerDto } from './dto/create-tasker.dto';
 import { UpdateTaskerDto } from './dto/update-tasker.dto';
 import { TimesheetEntity } from '../timesheets/entities/timesheet.entity';
 import { TimesheetEntryEntity } from '../timesheets/entities/timesheet-entry.entity';
+import { HoursService } from '../assignments/hours.service';
+import { AssignmentsService } from '../assignments/assignments.service';
 
 @Injectable()
 export class TaskersService {
@@ -24,15 +29,14 @@ export class TaskersService {
     private timesheetsRepo: Repository<TimesheetEntity>,
     @InjectRepository(TimesheetEntryEntity)
     private entriesRepo: Repository<TimesheetEntryEntity>,
+    private hoursService: HoursService,
+    private assignmentsService: AssignmentsService,
   ) {}
 
   async findAll(page = 1, limit = 20, status?: string) {
     const qb = this.taskersRepo
       .createQueryBuilder('tasker')
       .leftJoinAndSelect('tasker.user', 'user')
-      .leftJoinAndSelect('tasker.projects', 'projects')
-      .leftJoinAndSelect('projects.accounts', 'accounts')
-      .leftJoinAndSelect('tasker.timesheets', 'timesheets')
       .orderBy('tasker.createdAt', 'DESC')
       .skip((page - 1) * limit)
       .take(limit);
@@ -40,14 +44,36 @@ export class TaskersService {
     if (status) qb.where('tasker.availability_status = :status', { status });
     const [data, total] = await qb.getManyAndCount();
 
-    // Compute totalHours from summed timesheets since it is not stored as a column
-    const enriched = data.map((tasker) => ({
-      ...tasker,
-      totalHours: (tasker.timesheets || []).reduce(
-        (sum: number, ts: any) => sum + Number(ts.totalHours || 0),
-        0,
-      ),
-    }));
+    const enriched = await Promise.all(
+      data.map(async (tasker) => {
+        const assignments = await this.assignmentsService.getAssignmentsForTasker(tasker.id);
+        
+        // Group assignments by project
+        const projectsMap = new Map<string, any>();
+        for (const a of assignments) {
+          if (!projectsMap.has(a.projectId)) {
+            projectsMap.set(a.projectId, {
+              ...a.project,
+              accounts: [],
+            });
+          }
+          if (a.account) {
+            // Avoid duplicates
+            if (!projectsMap.get(a.projectId).accounts.find((acc: any) => acc.id === a.accountId)) {
+               projectsMap.get(a.projectId).accounts.push(a.account);
+            }
+          }
+        }
+
+        return {
+          ...tasker,
+          projects: Array.from(projectsMap.values()),
+          totalHours: await this.hoursService.sumEntryHours({
+            taskerId: tasker.id,
+          }),
+        };
+      }),
+    );
 
     return {
       data: enriched,
@@ -60,17 +86,40 @@ export class TaskersService {
       where: { id },
       relations: [
         'user',
-        'projects',
-        'projects.accounts',
         'payments',
         'payments.project',
         'timesheets',
         'timesheets.entries',
         'timesheets.project',
+        'timesheets.account',
       ],
     });
     if (!tasker) throw new NotFoundException('Tasker not found');
-    return tasker;
+    
+    const assignments = await this.assignmentsService.getAssignmentsForTasker(tasker.id);
+    const projectsMap = new Map<string, any>();
+    
+    for (const a of assignments) {
+      if (!projectsMap.has(a.projectId)) {
+        projectsMap.set(a.projectId, {
+          ...a.project,
+          accounts: [],
+        });
+      }
+      if (a.account) {
+        if (!projectsMap.get(a.projectId).accounts.find((acc: any) => acc.id === a.accountId)) {
+           projectsMap.get(a.projectId).accounts.push(a.account);
+        }
+      }
+    }
+
+    return {
+      ...tasker,
+      projects: Array.from(projectsMap.values()),
+      totalHours: await this.hoursService.sumEntryHours({
+        taskerId: tasker.id,
+      }),
+    };
   }
 
   async create(dto: CreateTaskerDto) {
@@ -79,14 +128,32 @@ export class TaskersService {
   }
 
   async update(id: string, dto: UpdateTaskerDto) {
-    const tasker = await this.findById(id);
+    const tasker = await this.taskersRepo.findOne({ where: { id } });
+    if (!tasker) throw new NotFoundException('Tasker not found');
     Object.assign(tasker, dto);
     return this.taskersRepo.save(tasker);
   }
 
   async delete(id: string) {
-    const tasker = await this.findById(id);
-    await this.taskersRepo.remove(tasker);
+    const tasker = await this.taskersRepo.findOne({ where: { id } });
+    if (!tasker) throw new NotFoundException('Tasker not found');
+
+    // Remove payments
+    try {
+      await this.paymentsRepo.delete({ taskerId: id } as any);
+    } catch (e) {
+      // ignore
+    }
+
+    // Remove timesheets (entries will be removed via ON DELETE CASCADE)
+    try {
+      await this.timesheetsRepo.delete({ taskerId: id } as any);
+    } catch (e) {
+      // ignore
+    }
+
+    // Delete the tasker record (this should cascade assignment links in DB)
+    await this.taskersRepo.delete({ id } as any);
     return { message: 'Tasker deleted' };
   }
 
@@ -100,75 +167,92 @@ export class TaskersService {
   }
 
   async addDailyHour(taskerId: string, payload: any) {
-    const tasker = await this.findById(taskerId);
-    
-    // Determine the weekStarting date (Monday) for the given date
-    const d = new Date(payload.date);
+    const { accountId, projectId, date, hours, casualties } = payload;
+    if (!accountId || !projectId) {
+      throw new BadRequestException('accountId and projectId are required');
+    }
+
+    await this.assignmentsService.assertCanLogHours(
+      accountId,
+      projectId,
+      taskerId,
+    );
+
+    const d = new Date(date);
     const diffToMonday = d.getDay() === 0 ? -6 : 1 - d.getDay();
     const monday = new Date(d);
     monday.setDate(d.getDate() + diffToMonday);
     const weekStarting = monday.toISOString().split('T')[0];
 
-    // Find or create the timesheet for this week, tasker, and project
     let timesheet = await this.timesheetsRepo.findOne({
       where: {
-        taskerId: tasker.id,
-        projectId: payload.projectId || null,
-        weekStarting: new Date(weekStarting),
+        taskerId,
+        projectId,
+        accountId,
+        weekStarting: weekStarting as any,
       },
       relations: ['entries'],
     });
 
     if (!timesheet) {
       timesheet = this.timesheetsRepo.create({
-        taskerId: tasker.id,
-        projectId: payload.projectId || null,
-        weekStarting: new Date(weekStarting),
+        taskerId,
+        projectId,
+        accountId,
+        weekStarting: weekStarting as any,
         status: 'draft',
         totalHours: 0,
       });
-      await this.timesheetsRepo.save(timesheet);
-      timesheet.entries = [];
+      // Capture the returned saved entity to ensure the generated id is populated.
+      timesheet = await this.timesheetsRepo.save(timesheet);
+      if (!timesheet.id) {
+        throw new Error('Failed to create timesheet (missing id)');
+      }
     }
 
-    // Insert the entry
     const entry = this.entriesRepo.create({
       timesheetId: timesheet.id,
-      entryDate: new Date(payload.date),
-      hoursWorked: payload.hours,
-      taskDescription: payload.casualties,
+      entryDate: date as any,
+      hoursWorked: hours,
+      taskDescription: casualties,
     });
     await this.entriesRepo.save(entry);
 
-    // Recalculate total hours for timesheet
-    const allEntries = await this.entriesRepo.find({ where: { timesheetId: timesheet.id } });
+    const allEntries = await this.entriesRepo.find({
+      where: { timesheetId: timesheet.id },
+    });
     const total = allEntries.reduce((sum, e) => sum + Number(e.hoursWorked), 0);
-    timesheet.totalHours = total;
-    await this.timesheetsRepo.save(timesheet);
+    await this.timesheetsRepo.update(timesheet.id, { totalHours: total });
 
     return entry;
   }
 
   async updatePayment(paymentId: string, payload: any) {
-    const payment = await this.paymentsRepo.findOne({ where: { id: paymentId } });
+    const payment = await this.paymentsRepo.findOne({
+      where: { id: paymentId },
+    });
     if (!payment) throw new NotFoundException('Payment not found');
     Object.assign(payment, payload);
     return this.paymentsRepo.save(payment);
   }
 
   async updateDailyHour(hourId: string, payload: any) {
-    // hourId maps to the TimesheetEntryEntity ID
-    const entry = await this.entriesRepo.findOne({ where: { id: hourId } });
+    const entry = await this.entriesRepo.findOne({
+      where: { id: hourId },
+      relations: ['timesheet'],
+    });
     if (!entry) throw new NotFoundException('Daily hour entry not found');
-    
+
     if (payload.hours !== undefined) entry.hoursWorked = payload.hours;
-    if (payload.date !== undefined) entry.entryDate = new Date(payload.date);
-    if (payload.casualties !== undefined) entry.taskDescription = payload.casualties;
+    if (payload.date !== undefined) entry.entryDate = payload.date as any;
+    if (payload.casualties !== undefined)
+      entry.taskDescription = payload.casualties;
 
     await this.entriesRepo.save(entry);
 
-    // Recalculate total hours on timesheet
-    const allEntries = await this.entriesRepo.find({ where: { timesheetId: entry.timesheetId } });
+    const allEntries = await this.entriesRepo.find({
+      where: { timesheetId: entry.timesheetId },
+    });
     const total = allEntries.reduce((sum, e) => sum + Number(e.hoursWorked), 0);
     await this.timesheetsRepo.update(entry.timesheetId, { totalHours: total });
 

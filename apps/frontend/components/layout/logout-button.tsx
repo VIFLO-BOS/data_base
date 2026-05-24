@@ -3,6 +3,7 @@
 import React from"react";
 import { useRouter } from"next/navigation";
 import { LogOut } from"lucide-react";
+import { useAuthStore } from "../../store/authStore";
 
 /**
  * LogoutButton Component
@@ -12,7 +13,7 @@ export function LogoutButton() {
  const router = useRouter();
 
  const handleLogout = () => {
- // Clear any auth tokens/state here if needed
+ useAuthStore.getState().signOut();
  router.push("/login");
  };
 

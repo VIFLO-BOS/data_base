@@ -95,14 +95,14 @@ export function OverviewFilter({
   return (
     <div className="self-stretch flex flex-wrap justify-start items-center gap-2.5">
       {/* Filter Toggle */}
-      <div className="p-0.5 bg-neutral-50 rounded-lg outline outline-1 outline-offset-[-1px] outline-zinc-200 flex justify-center items-center gap-1 shadow-sm">
+      <div className="p-1 bg-[#F9F9F9] rounded-lg border border-zinc-100 flex justify-center items-center gap-1">
         {filters.map((filter) => (
           <button
             key={filter}
             onClick={() => onFilterChange?.(filter)}
-            className={`px-3 py-1.5 rounded-md text-stone-900 font-medium transition-all duration-200 ${filter === activeFilter
-                ? 'bg-white shadow-sm ring-1 ring-zinc-200 text-sm'
-                : 'hover:bg-zinc-200/50 text-sm text-zinc-500'
+            className={`px-4 py-1.5 rounded-md font-medium transition-all duration-200 ${filter === activeFilter
+                ? 'bg-white shadow-sm text-stone-900 text-[13px]'
+                : 'hover:bg-zinc-200/40 text-[13px] text-[#A0A0A0]'
               }`}
           >
             {filter}
@@ -114,17 +114,17 @@ export function OverviewFilter({
       <div className="relative" ref={dropdownRef}>
         <button
           onClick={() => setIsCalendarOpen(!isCalendarOpen)}
-          className={`px-3 py-1.5 rounded-lg flex items-center gap-2 transition-all duration-200 outline-none
+          className={`px-4 py-2 rounded-lg flex items-center gap-2 transition-all duration-200 outline-none
             ${isCalendarOpen
-              ? 'bg-zinc-100 border border-zinc-300 ring-2 ring-zinc-900/5 ring-offset-1 text-stone-900 shadow-inner'
-              : 'bg-white border-0 shadow-sm ring-1 ring-zinc-200 text-stone-700 shadow-sm hover:bg-zinc-50 hover:border-zinc-300'
+              ? 'bg-zinc-100 border border-zinc-200 text-stone-900'
+              : 'bg-[#F9F9F9] border border-zinc-100 text-stone-700 hover:bg-zinc-50'
             }
           `}
         >
-          <Calendar className="w-4 h-4 text-zinc-500" />
-          <span className="text-sm font-medium">{formatDisplayDate(selectedDate)}</span>
+          <Calendar className="w-4 h-4 text-stone-500" />
+          <span className="text-[13px] font-medium">{formatDisplayDate(selectedDate) === 'Select Date' ? 'Date' : formatDisplayDate(selectedDate)}</span>
           <ChevronDown
-            className={`w-4 h-4 text-zinc-400 transition-transform duration-200 ${isCalendarOpen ? 'rotate-180' : ''}`}
+            className={`w-4 h-4 text-stone-400 transition-transform duration-200 ${isCalendarOpen ? 'rotate-180' : ''}`}
           />
         </button>
 

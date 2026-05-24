@@ -38,6 +38,10 @@ export class CreateTimesheetDto {
   @IsString()
   projectId: string;
 
+  @ApiProperty()
+  @IsString()
+  accountId: string;
+
   @ApiProperty({ example: '2026-05-05' })
   @IsDateString()
   weekStarting: string;

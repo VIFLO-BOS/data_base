@@ -10,9 +10,15 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
+import { json, urlencoded } from 'express';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create(AppModule, { bodyParser: false });
+  
+  // Configure body parsers with increased payload limits
+  app.use(json({ limit: '50mb' }));
+  app.use(urlencoded({ extended: true, limit: '50mb' }));
+
   const config = app.get(ConfigService);
 
   // CORS - allow frontend to call the api. MUST be before rate limit and helmet so blocked requests get headers.
