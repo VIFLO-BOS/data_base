@@ -33,11 +33,11 @@ export class TaskerPaymentEntity {
   @UpdateDateColumn({ name: 'updated_at' })
   updatedAt: Date;
 
-  @ManyToOne(() => TaskerEntity)
+  @ManyToOne(() => TaskerEntity, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'tasker_id' })
   tasker: TaskerEntity;
 
-  @ManyToOne(() => ProjectEntity)
+  @ManyToOne(() => ProjectEntity, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'project_id' })
   project: ProjectEntity;
 }

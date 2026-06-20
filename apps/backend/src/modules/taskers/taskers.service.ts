@@ -65,12 +65,20 @@ export class TaskersService {
           }
         }
 
+        const totalHours = await this.hoursService.sumEntryHours({
+          taskerId: tasker.id,
+        });
+
+        const exactPayout = await this.hoursService.sumTaskerPayout(tasker.id);
+        const totalAmount = exactPayout > 0 
+          ? `₦${exactPayout.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` 
+          : '₦0.00';
+
         return {
           ...tasker,
           projects: Array.from(projectsMap.values()),
-          totalHours: await this.hoursService.sumEntryHours({
-            taskerId: tasker.id,
-          }),
+          totalHours,
+          totalAmount,
         };
       }),
     );
@@ -113,12 +121,20 @@ export class TaskersService {
       }
     }
 
+    const totalHours = await this.hoursService.sumEntryHours({
+      taskerId: tasker.id,
+    });
+
+    const exactPayout = await this.hoursService.sumTaskerPayout(tasker.id);
+    const totalAmount = exactPayout > 0 
+      ? `₦${exactPayout.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` 
+      : '₦0.00';
+
     return {
       ...tasker,
       projects: Array.from(projectsMap.values()),
-      totalHours: await this.hoursService.sumEntryHours({
-        taskerId: tasker.id,
-      }),
+      totalHours,
+      totalAmount,
     };
   }
 
@@ -182,7 +198,7 @@ export class TaskersService {
     const diffToMonday = d.getDay() === 0 ? -6 : 1 - d.getDay();
     const monday = new Date(d);
     monday.setDate(d.getDate() + diffToMonday);
-    const weekStarting = monday.toISOString().split('T')[0];
+    const weekStarting = `${monday.getFullYear()}-${String(monday.getMonth() + 1).padStart(2, '0')}-${String(monday.getDate()).padStart(2, '0')}`;
 
     let timesheet = await this.timesheetsRepo.findOne({
       where: {

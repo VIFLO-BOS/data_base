@@ -7,6 +7,7 @@ import { OverviewFilter } from '../../../../components/dashboard/overview-filter
 import { ChartArea } from '../../../../components/dashboard/chart-area';
 import { getDashboardSummary, DashboardSummary } from '../../../../services/analytics-service';
 import { Loader2 } from 'lucide-react';
+import { showError } from '@/lib/toast';
 
 type FilterType = 'Day' | 'Week' | 'Month' | 'Year';
 
@@ -29,11 +30,20 @@ const comparisonText: Record<FilterType, string> = {
 /** Helper to format trend numbers into percentage and direction */
 function getTrendInfo(trend?: number): { percentage: string; trend: 'up' | 'down' | 'neutral' } {
   if (trend === undefined || trend === null || trend === 0)
-    return { percentage: '0%', trend: 'neutral' };
+    return { percentage: '00.00%', trend: 'neutral' };
   const val = Number(trend);
   if (val > 0) return { percentage: `${val.toFixed(2)}%`, trend: 'up' };
   if (val < 0) return { percentage: `${Math.abs(val).toFixed(2)}%`, trend: 'down' };
-  return { percentage: '0%', trend: 'neutral' };
+  return { percentage: '00.00%', trend: 'neutral' };
+}
+
+/** Convert decimal hours to Xh:YYm format */
+function formatHoursText(hours: number | string | null | undefined): string {
+  if (!hours) return '0h:00m';
+  const totalMins = Math.round(Number(hours) * 60);
+  const h = Math.floor(totalMins / 60);
+  const m = totalMins % 60;
+  return `${h}h:${String(m).padStart(2, '0')}m`;
 }
 
 /**
@@ -62,7 +72,7 @@ export default function AdminDashboardPage() {
       );
       if (data) setSummary(data);
     } catch (error) {
-      console.error('Failed to fetch dashboard summary:', error);
+      showError(error, 'Failed to fetch dashboard summary');
     } finally {
       setIsLoading(false);
     }
@@ -79,8 +89,6 @@ export default function AdminDashboardPage() {
 
   return (
     <div className="flex-1 flex flex-col justify-start items-start gap-4 lg:gap-6 w-full">
-   
-
       {/* Main Overview Card */}
       <div className="self-stretch bg-white rounded-[20px] border border-zinc-200 shadow-sm flex flex-col p-6 lg:p-4 gap-6 w-full">
         {/* Overview Title */}
@@ -123,8 +131,8 @@ export default function AdminDashboardPage() {
             trend={taskersTrend.trend}
           />
           <StatCard
-            label="Total Hours Logged"
-            value={summary?.totalHoursToday ?? '-'}
+            label="Hours Today"
+            value={formatHoursText(summary?.totalHoursToday)}
             percentage={hoursTrend.percentage}
             comparisonText={currentComparisonText}
             trend={hoursTrend.trend}
@@ -146,6 +154,7 @@ export default function AdminDashboardPage() {
               activeAccounts: summary?.activeAccounts ?? 0,
               activeTaskers: summary?.activeTaskers ?? 0,
               hoursToday: summary?.totalHoursToday ?? 0,
+              hoursLabel: formatHoursText(summary?.totalHoursToday),
               chartData: summary?.chartData,
             }}
           />

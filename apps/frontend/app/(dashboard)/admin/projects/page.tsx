@@ -9,8 +9,15 @@ import { EmptyState } from '../../../../components/projects/empty-state';
 import { NewProjectModal } from '../../../../components/projects/new-project-modal';
 import { ProjectSuccessModal } from '../../../../components/projects/project-success-modal';
 import { ProjectList } from '../../../../components/projects/project-list';
-import { getProjects, createProject, deleteProject, deleteProjectPermanently, Project } from '../../../../services/project-service';
+import {
+  getProjects,
+  createProject,
+  deleteProject,
+  deleteProjectPermanently,
+  Project,
+} from '../../../../services/project-service';
 import { Loader2 } from 'lucide-react';
+import { showError, showSuccess } from '@/lib/toast';
 
 export default function ProjectsPage() {
   const router = useRouter();
@@ -25,7 +32,7 @@ export default function ProjectsPage() {
       const list = await getProjects();
       setProjects(list);
     } catch (error) {
-      console.error("Failed to fetch projects:", error);
+      showError(error, 'Failed to fetch projects');
     } finally {
       setIsLoading(false);
     }
@@ -39,7 +46,12 @@ export default function ProjectsPage() {
     accounts: p.accounts || [],
     accountsCount: p.accounts?.length || 0,
     taskersCount: p.taskers?.length || p.taskersCount || 0,
-    dateCreated: new Date(p.createdAt).toLocaleDateString('en-US', { weekday: 'short', month: 'long', day: 'numeric', year: 'numeric' }),
+    dateCreated: new Date(p.createdAt).toLocaleDateString('en-US', {
+      weekday: 'short',
+      month: 'long',
+      day: 'numeric',
+      year: 'numeric',
+    }),
   }));
 
   const handleCreateProject = async (newProject: any) => {
@@ -55,7 +67,7 @@ export default function ProjectsPage() {
       setIsNewProjectOpen(false);
       setIsSuccessOpen(true);
     } catch (error) {
-      console.error("Failed to create project:", error);
+      showError(error, 'Failed to create project');
     }
   };
 
@@ -66,7 +78,7 @@ export default function ProjectsPage() {
       fetchProjects();
       notifyDataMutated();
     } catch (error) {
-      console.error("Failed to delete project:", error);
+      showError(error, 'Failed to delete project');
     }
   };
 
@@ -75,10 +87,7 @@ export default function ProjectsPage() {
       {/* White card wrapper — consistent with Accounts/Taskers/Timesheets */}
       <div className="self-stretch p-6 bg-white rounded-xl shadow-md border-0 flex flex-col gap-4">
         {/* Header */}
-        <ProjectsHeader 
-          count={projects.length} 
-          onNewClick={() => setIsNewProjectOpen(true)} 
-        />
+        <ProjectsHeader count={projects.length} onNewClick={() => setIsNewProjectOpen(true)} />
 
         {/* Search Bar */}
         <SearchBar />
@@ -91,9 +100,9 @@ export default function ProjectsPage() {
         ) : mappedProjects.length === 0 ? (
           <EmptyState onCreateClick={() => setIsNewProjectOpen(true)} />
         ) : (
-          <ProjectList 
-            projects={mappedProjects} 
-            onDelete={handleDeleteProject} 
+          <ProjectList
+            projects={mappedProjects}
+            onDelete={handleDeleteProject}
             onViewDetails={(project) => router.push(`/admin/projects/${project.id}`)}
           />
         )}
@@ -101,17 +110,13 @@ export default function ProjectsPage() {
 
       {/* Modals */}
       {isNewProjectOpen && (
-        <NewProjectModal 
-          onClose={() => setIsNewProjectOpen(false)} 
-          onCreate={handleCreateProject} 
+        <NewProjectModal
+          onClose={() => setIsNewProjectOpen(false)}
+          onCreate={handleCreateProject}
         />
       )}
 
-      {isSuccessOpen && (
-        <ProjectSuccessModal 
-          onClose={() => setIsSuccessOpen(false)} 
-        />
-      )}
+      {isSuccessOpen && <ProjectSuccessModal onClose={() => setIsSuccessOpen(false)} />}
     </div>
   );
 }

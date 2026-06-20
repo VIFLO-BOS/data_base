@@ -6,7 +6,7 @@ import { ThemeProvider } from '@/components/shared/theme-provider';
 const inter = Inter({ subsets: ['latin'], variable: '--font-sans' });
 
 export const metadata: Metadata = {
-  title: 'Annotator Platform',
+  title: 'Paylio',
   description: 'Staff & Tasker Management Dashboard',
 };
 

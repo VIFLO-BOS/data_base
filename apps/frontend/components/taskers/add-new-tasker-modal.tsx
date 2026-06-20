@@ -2,8 +2,8 @@
 
 import React, { useState } from 'react';
 import { X } from 'lucide-react';
-import { ProjectSearchInput } from '../projects/project-search-input';
-import { AccountSearchInput } from '../accounts/account-search-input';
+// import { ProjectSearchInput } from '../projects/project-search-input';
+// import { AccountSearchInput } from '../accounts/account-search-input';
 
 interface AddNewTaskerModalProps {
   onClose: () => void;
@@ -135,7 +135,7 @@ export function AddNewTaskerModal({ onClose, onSubmit }: AddNewTaskerModalProps)
           </div>
 
           {/* Row 5: Assign Projects & Accounts */}
-          <div className="flex flex-col gap-5">
+          {/* <div className="flex flex-col gap-5">
             <ProjectSearchInput 
               selectedProjects={selectedProjects}
               onChange={setSelectedProjects}
@@ -144,7 +144,7 @@ export function AddNewTaskerModal({ onClose, onSubmit }: AddNewTaskerModalProps)
               selectedAccounts={selectedAccounts}
               onChange={setSelectedAccounts}
             />
-          </div>
+          </div> */}
 
           {/* Footer */}
           <div className="pt-4 border-t border-zinc-200 flex justify-end">

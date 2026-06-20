@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useRefreshOnFocus, notifyDataMutated } from '../../../../hooks/use-refresh-on-focus';
 import { TimelineHeader } from '../../../../components/timesheets/timeline-header';
@@ -11,45 +11,46 @@ import { Pagination } from '../../../../components/accounts/pagination';
 import { InputTimeModal } from '../../../../components/timesheets/input-time-modal';
 import { PaymentDetailsModal } from '../../../../components/timesheets/payment-details-modal';
 import { getTimesheets, updateTimesheetEntry } from '../../../../services/timesheet-service';
+import { addTaskerPayment } from '../../../../services/tasker-service';
+import { showError } from '@/lib/toast';
+import toast from 'react-hot-toast';
 import { Loader2 } from 'lucide-react';
 
-/**
- * Compute the Monday-anchored 7-day columns for a given date string (or today).
- * Returns both the column labels and the ISO date string for each day.
- */
-function getWeekColumns(dateStr?: string) {
-  const base = dateStr ? new Date(dateStr) : new Date();
-  // Shift to Monday (Sunday=0 → -6, Monday=1 → 0, ..., Saturday=6 → -5)
-  const dayOfWeek = base.getDay();
-  const diffToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
-  const monday = new Date(base);
-  monday.setDate(base.getDate() + diffToMonday);
-
-  const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-  const columns = dayNames.map((name, i) => {
-    const d = new Date(monday);
-    d.setDate(monday.getDate() + i);
-    const month = d.getMonth() + 1;
-    const day = d.getDate();
-    const isoDate = d.toISOString().split('T')[0];
-    return { label: `${name} ${month}/${day}`, date: isoDate };
-  });
-
-  const weekStarting = monday.toISOString().split('T')[0];
-  return { columns, weekStarting };
+/** Timezone-safe: always returns the LOCAL date string (YYYY-MM-DD), not UTC. */
+function toLocalISODate(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
+
+
 
 /**
  * Compute the columns based on the active period.
  */
-function getColumns(dateStr?: string, period: 'Day' | 'Week' | 'Month' | 'Year' | 'All Time' = 'Week') {
-  const base = dateStr ? new Date(dateStr) : new Date();
+function getColumns(
+  dateStr?: string,
+  period: 'Day' | 'Week' | 'Month' | 'Year' | 'All Time' = 'Week',
+) {
+  let base = new Date();
+  if (dateStr && dateStr.includes('-')) {
+    // Safely parse YYYY-MM-DD into a local Date at noon to prevent UTC boundary shifts
+    const [y, m, d] = dateStr.split('T')[0].split('-').map(Number);
+    base = new Date(y, m - 1, d || 1, 12, 0, 0);
+  } else if (dateStr) {
+    base = new Date(dateStr);
+  } else {
+    base.setHours(12, 0, 0, 0); // Secure current date at noon too
+  }
 
   if (period === 'Day') {
     const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-    const isoDate = base.toISOString().split('T')[0];
+    const isoDate = toLocalISODate(base);
     return {
-      columns: [{ label: `${dayNames[base.getDay()]} ${base.getMonth() + 1}/${base.getDate()}`, date: isoDate }],
+      columns: [
+        {
+          label: `${dayNames[base.getDay()]} ${base.getMonth() + 1}/${base.getDate()}`,
+          date: isoDate,
+        },
+      ],
       queryWeek: undefined,
     };
   }
@@ -62,7 +63,7 @@ function getColumns(dateStr?: string, period: 'Day' | 'Week' | 'Month' | 'Year' 
     const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
     for (let i = 1; i <= daysInMonth; i++) {
       const d = new Date(year, month, i);
-      const isoDate = d.toISOString().split('T')[0];
+      const isoDate = toLocalISODate(d);
       columns.push({ label: `${dayNames[d.getDay()]} ${month + 1}/${i}`, date: isoDate });
     }
     return { columns, queryWeek: undefined };
@@ -71,7 +72,20 @@ function getColumns(dateStr?: string, period: 'Day' | 'Week' | 'Month' | 'Year' 
   if (period === 'Year') {
     const year = base.getFullYear();
     const columns = [];
-    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const monthNames = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
     for (let i = 0; i < 12; i++) {
       // Use YYYY-MM prefix to match
       const prefix = `${year}-${String(i + 1).padStart(2, '0')}`;
@@ -105,11 +119,11 @@ function getColumns(dateStr?: string, period: 'Day' | 'Week' | 'Month' | 'Year' 
     d.setDate(monday.getDate() + i);
     const month = d.getMonth() + 1;
     const day = d.getDate();
-    const isoDate = d.toISOString().split('T')[0];
+    const isoDate = toLocalISODate(d);
     return { label: `${name} ${month}/${day}`, date: isoDate };
   });
 
-  const weekStarting = monday.toISOString().split('T')[0];
+  const weekStarting = toLocalISODate(monday);
   return { columns, queryWeek: weekStarting };
 }
 
@@ -122,7 +136,9 @@ export default function TimesheetsPage() {
   const router = useRouter();
 
   // Period filter state
-  const [activePeriod, setActivePeriod] = useState<'Day' | 'Week' | 'Month' | 'Year' | 'All Time'>('All Time');
+  const [activePeriod, setActivePeriod] = useState<'Day' | 'Week' | 'Month' | 'Year' | 'All Time'>(
+    'All Time',
+  );
   const [selectedDate, setSelectedDate] = useState<string | undefined>(undefined);
 
   // Derive dynamic columns from selected date
@@ -130,98 +146,146 @@ export default function TimesheetsPage() {
 
   // Time Input Modal State
   const [isTimeModalOpen, setIsTimeModalOpen] = useState(false);
-  const [editingCell, setEditingCell] = useState<{ rowId: string; dayIndex: number; dateLabel: string; date: string; initialValue: string } | null>(null);
+  const [editingCell, setEditingCell] = useState<{
+    rowId: string;
+    dayIndex: number;
+    dateLabel: string;
+    date: string;
+    initialValue: string;
+  } | null>(null);
 
-  const fetchTimesheets = useCallback(async (week?: string, period: string = 'Week') => {
-    setIsLoading(true);
-    try {
-      const timesheetsData = await getTimesheets(1, 100, undefined, week);
-      const cols = getColumns(selectedDate, period as any).columns;
+  const fetchTimesheets = useCallback(
+    async (week?: string, period: string = 'Week') => {
+      setIsLoading(true);
+      try {
+        const timesheetsData = await getTimesheets(1, 100, undefined, week);
+        const cols = getColumns(selectedDate, period as any).columns;
 
-      const mapped = timesheetsData.map((t: any) => {
-        const days: string[] = cols.map(() => '--:--');
+        const mapped = timesheetsData.map((t: any) => {
+          const days: string[] = cols.map(() => '--:--');
 
-        if (t.entries && t.entries.length > 0) {
-          if (period === 'Year') {
-            // Aggregate by month prefix
-            const monthTotals: Record<string, number> = {};
-            t.entries.forEach((entry: any) => {
-              const entryDateStr = new Date(entry.entryDate).toISOString().split('T')[0];
-              const prefix = entryDateStr.substring(0, 7); // YYYY-MM
-              monthTotals[prefix] = (monthTotals[prefix] || 0) + Number(entry.hoursWorked || 0);
-            });
-            cols.forEach((col, i) => {
-              const total = monthTotals[col.date] || 0;
-              if (total > 0) {
-                const h = Math.floor(total);
-                const m = Math.round((total - h) * 60);
-                days[i] = `${h}h:${String(m).padStart(2, '0')}m`;
-              }
-            });
-          } else if (period === 'All Time') {
-            const yearTotals: Record<string, number> = {};
-            t.entries.forEach((entry: any) => {
-              const entryDateStr = new Date(entry.entryDate).toISOString().split('T')[0];
-              const yearStr = entryDateStr.substring(0, 4); // YYYY
-              yearTotals[yearStr] = (yearTotals[yearStr] || 0) + Number(entry.hoursWorked || 0);
-            });
-            cols.forEach((col, i) => {
-              const total = yearTotals[col.date] || 0;
-              if (total > 0) {
-                const h = Math.floor(total);
-                const m = Math.round((total - h) * 60);
-                days[i] = `${h}h:${String(m).padStart(2, '0')}m`;
-              }
-            });
-          } else {
-            t.entries.forEach((entry: any) => {
-              const entryDateStr = new Date(entry.entryDate).toISOString().split('T')[0];
-              const colIndex = cols.findIndex((col) => col.date === entryDateStr);
-              if (colIndex >= 0) {
-                const h = Math.floor(Number(entry.hoursWorked));
-                const m = Math.round((Number(entry.hoursWorked) - h) * 60);
-                days[colIndex] = `${h}h:${String(m).padStart(2, '0')}m`;
-              }
-            });
+          if (t.entries && t.entries.length > 0) {
+            if (period === 'Year') {
+              // Aggregate by month prefix
+              const monthTotals: Record<string, number> = {};
+              t.entries.forEach((entry: any) => {
+                const entryDateStr = entry.entryDate;
+                const prefix = entryDateStr.substring(0, 7); // YYYY-MM
+                monthTotals[prefix] = (monthTotals[prefix] || 0) + Number(entry.hoursWorked || 0);
+              });
+              cols.forEach((col, i) => {
+                const total = monthTotals[col.date] || 0;
+                if (total > 0) {
+                  const h = Math.floor(total);
+                  const m = Math.round((total - h) * 60);
+                  days[i] = `${h}h:${String(m).padStart(2, '0')}m`;
+                }
+              });
+            } else if (period === 'All Time') {
+              const yearTotals: Record<string, number> = {};
+              t.entries.forEach((entry: any) => {
+                const entryDateStr = entry.entryDate;
+                const yearStr = entryDateStr.substring(0, 4); // YYYY
+                yearTotals[yearStr] = (yearTotals[yearStr] || 0) + Number(entry.hoursWorked || 0);
+              });
+              cols.forEach((col, i) => {
+                const total = yearTotals[col.date] || 0;
+                if (total > 0) {
+                  const h = Math.floor(total);
+                  const m = Math.round((total - h) * 60);
+                  days[i] = `${h}h:${String(m).padStart(2, '0')}m`;
+                }
+              });
+            } else {
+              t.entries.forEach((entry: any) => {
+                const entryDateStr = entry.entryDate;
+                const colIndex = cols.findIndex((col) => col.date === entryDateStr);
+                if (colIndex >= 0) {
+                  const h = Math.floor(Number(entry.hoursWorked));
+                  const m = Math.round((Number(entry.hoursWorked) - h) * 60);
+                  days[colIndex] = `${h}h:${String(m).padStart(2, '0')}m`;
+                }
+              });
+            }
           }
-        }
 
-        const taskerName = t.tasker
-          ? `${t.tasker.firstName || ''} ${t.tasker.lastName || ''}`.trim() || t.tasker.user?.email || 'Unknown Tasker'
-          : t.taskerName || 'Unknown Tasker';
+          const taskerName = t.tasker
+            ? `${t.tasker.firstName || ''} ${t.tasker.lastName || ''}`.trim() ||
+            t.tasker.user?.email ||
+            'Unknown Tasker'
+            : t.taskerName || 'Unknown Tasker';
 
-        const totalHoursNum = Number(t.totalHours || 0);
-        const th = Math.floor(totalHoursNum);
-        const tm = Math.round((totalHoursNum - th) * 60);
-        const totalHoursLabel = tm > 0 ? `${th}h:${String(tm).padStart(2, '0')}m` : `${th}h:00m`;
+          // Calculate precise total hours and amount from the matched entries in the current columns
+          let columnTotalHours = 0;
+          days.forEach((d) => {
+            if (d !== '--:--') {
+              const match = d.match(/(\d+)h:(\d+)m/);
+              if (match) {
+                columnTotalHours += parseInt(match[1]) + parseInt(match[2]) / 60;
+              }
+            }
+          });
 
-        return {
-          id: t.id,
-          tasker: taskerName,
-          account: t.account?.name || 'Unassigned',
-          project: t.project?.name || 'Unassigned',
-          days,
-          totalHours: totalHoursLabel,
-          totalAmount: t.totalAmount || '$0.00',
-          status: t.status === 'approved' ? 'Approved' : t.status === 'submitted' ? 'Submitted' : 'Pending',
-          weekStarting: t.weekStarting,
-        };
-      });
+          // If period is Week, the backend exact values are accurate for that period.
+          // For Day/Month/Year/All Time, use the dynamically calculated ones from columns.
+          let finalTotalHoursNum = (period === 'Week') ? Number(t.totalHours || 0) : columnTotalHours;
+          let finalRawAmount = t.rawAmount;
+          let finalTotalAmount = t.totalAmount || '₦0.00';
 
-      // Show all taskers, including those with no hours logged yet
-      const filteredMapped = mapped;
+          if (period !== 'Week') {
+            const hourlyRate = Number(t.project?.pricePerHour || 0);
+            const exactMinutes = Math.round(finalTotalHoursNum * 60);
+            finalRawAmount = exactMinutes * (hourlyRate / 60);
+            finalTotalAmount = finalRawAmount > 0
+              ? `₦${finalRawAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+              : '₦0.00';
+          }
 
-      setTimesheets(filteredMapped);
-    } catch (error) {
-      console.error('Failed to fetch timesheets', error);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [selectedDate]);
+          const th = Math.floor(finalTotalHoursNum);
+          const tm = Math.round((finalTotalHoursNum - th) * 60);
+          const totalHoursLabel = tm > 0 ? `${th}h:${String(tm).padStart(2, '0')}m` : `${th}h:00m`;
+
+          return {
+            id: t.id,
+            taskerId: t.taskerId,
+            projectId: t.projectId,
+            rawAmount: finalRawAmount,
+            tasker: taskerName,
+            account: t.account?.name || 'Unassigned',
+            project: t.project?.name || 'Unassigned',
+            days,
+            totalHours: totalHoursLabel,
+            totalAmount: finalTotalAmount,
+            status:
+              t.status === 'approved'
+                ? 'Approved'
+                : t.status === 'submitted'
+                  ? 'Submitted'
+                  : 'Pending',
+            weekStarting: t.weekStarting,
+          };
+        });
+
+        // Show all taskers, including those with no hours logged yet
+        const filteredMapped = mapped;
+
+        setTimesheets(filteredMapped);
+      } catch (error) {
+        showError(error, 'Failed to fetch timesheets');
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [selectedDate],
+  );
 
   const fetchTimesheetsStable = useCallback(() => {
     fetchTimesheets(queryWeek, activePeriod);
   }, [queryWeek, activePeriod, fetchTimesheets]);
+
+  useEffect(() => {
+    fetchTimesheetsStable();
+  }, [fetchTimesheetsStable]);
 
   useRefreshOnFocus(fetchTimesheetsStable);
 
@@ -248,7 +312,7 @@ export default function TimesheetsPage() {
         await fetchTimesheets(queryWeek, activePeriod);
         notifyDataMutated();
       } catch (error) {
-        console.error('Failed to update timesheet entry', error);
+        showError(error, 'Failed to update timesheet entry');
       }
     }
     setIsTimeModalOpen(false);
@@ -257,6 +321,26 @@ export default function TimesheetsPage() {
   const handleViewPaymentDetails = (row: any) => {
     setSelectedPaymentRow(row);
     setIsPaymentModalOpen(true);
+  };
+
+  const handleMarkAsPaid = async (row: any) => {
+    if (!row.taskerId || !row.projectId || !row.rawAmount) {
+      toast.error('Cannot mark as paid. Missing required data.');
+      return;
+    }
+
+    try {
+      const paymentDateStr = new Date().toISOString();
+      await addTaskerPayment(row.taskerId, {
+        amount: row.rawAmount,
+        paymentDate: paymentDateStr,
+        projectId: row.projectId,
+      });
+      toast.success(`Successfully logged payment of ${row.totalAmount} for ${row.tasker}`);
+      await fetchTimesheets(queryWeek, activePeriod);
+    } catch (err) {
+      showError(err, 'Failed to save payment');
+    }
   };
 
   let initialHours = '';
@@ -304,15 +388,21 @@ export default function TimesheetsPage() {
                   rows={timesheets}
                   dayColumns={dayColumns}
                   onTimeCellClick={
-                    (activePeriod === 'Year' || activePeriod === 'All Time') 
-                      ? undefined 
+                    activePeriod === 'Year' || activePeriod === 'All Time'
+                      ? undefined
                       : (row, dayIndex) => handleTimeCellClick(row, dayIndex)
                   }
                   onViewPaymentDetails={handleViewPaymentDetails}
+                 
                 />
 
                 {/* Pagination */}
-                <Pagination currentPage={1} totalPages={Math.ceil(timesheets.length / 9) || 1} totalItems={timesheets.length} itemsPerPage={9} />
+                <Pagination
+                  currentPage={1}
+                  totalPages={Math.ceil(timesheets.length / 9) || 1}
+                  totalItems={timesheets.length}
+                  itemsPerPage={9}
+                />
               </>
             )}
           </div>
@@ -342,7 +432,3 @@ export default function TimesheetsPage() {
     </div>
   );
 }
-
-
-
-

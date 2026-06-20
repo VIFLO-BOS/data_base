@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, ChevronDown } from 'lucide-react';
 import { getProjects, Project } from '../../services/project-service';
+import { showError } from '@/lib/toast';
 import { TaskerSearchInput } from '../taskers/tasker-search-input';
 
 interface EditAccountModalProps {
@@ -12,14 +13,14 @@ interface EditAccountModalProps {
     project: string;
     accountName: string;
     clientName: string;
-    taskers: {id: string; name: string}[];
+    taskers: { id: string; name: string }[];
   }) => void;
   initialData: {
     projectId: string;
     project: string; // The name (for fallback)
     accountName: string;
     clientName: string;
-    taskers: {id: string; name: string}[];
+    taskers: { id: string; name: string }[];
   };
 }
 
@@ -32,7 +33,9 @@ export function EditAccountModal({ onClose, onSave, initialData }: EditAccountMo
   const [project, setProject] = useState(initialData.project);
   const [accountName, setAccountName] = useState(initialData.accountName);
   const [clientName, setClientName] = useState(initialData.clientName);
-  const [selectedTaskers, setSelectedTaskers] = useState<{id: string; name: string}[]>(initialData.taskers);
+  const [selectedTaskers, setSelectedTaskers] = useState<{ id: string; name: string }[]>(
+    initialData.taskers,
+  );
   const [projectsList, setProjectsList] = useState<Project[]>([]);
 
   useEffect(() => {
@@ -41,7 +44,7 @@ export function EditAccountModal({ onClose, onSave, initialData }: EditAccountMo
         const list = await getProjects(1, 100);
         setProjectsList(list);
       } catch (e) {
-        console.error(e);
+        showError(e, 'Failed to load projects');
       }
     }
     load();
@@ -71,7 +74,7 @@ export function EditAccountModal({ onClose, onSave, initialData }: EditAccountMo
               value={projectId}
               onChange={(e) => {
                 setProjectId(e.target.value);
-                const p = projectsList.find(proj => proj.id === e.target.value);
+                const p = projectsList.find((proj) => proj.id === e.target.value);
                 if (p) setProject(p.name);
               }}
               className="w-full p-3 rounded-xl border-0 shadow-sm text-sm font-medium leading-6 appearance-none bg-white cursor-pointer text-stone-900 outline-none"
@@ -114,7 +117,8 @@ export function EditAccountModal({ onClose, onSave, initialData }: EditAccountMo
         {/* Save Button */}
         <button
           onClick={() =>
-            isValid && onSave({ projectId, project, accountName, clientName, taskers: selectedTaskers })
+            isValid &&
+            onSave({ projectId, project, accountName, clientName, taskers: selectedTaskers })
           }
           disabled={!isValid}
           className={`w-full px-4 py-3 rounded-lg flex justify-center items-center transition-colors cursor-pointer ${

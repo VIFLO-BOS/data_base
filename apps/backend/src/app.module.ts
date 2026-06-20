@@ -61,6 +61,26 @@ import { HttpExceptionFilter } from './common/filters/http-exception.filter';
           config.get<string>('app.env') === 'production'
             ? { rejectUnauthorized: false }
             : false,
+
+        // ── Connection resilience ──────────────────────────────────────
+        // Retry connecting on startup (e.g. if DB isn't ready yet)
+        retryAttempts: 10,
+        retryDelay: 3000, // 3 seconds between retries
+
+        // Keep the connection alive across idle periods
+        keepConnectionAlive: true,
+
+        // Connection pool settings (pg driver)
+        extra: {
+          // Maximum connections in the pool
+          max: 20,
+          // Return an error after 30s if no connection available
+          connectionTimeoutMillis: 30000,
+          // Close idle connections after 10 seconds
+          idleTimeoutMillis: 10000,
+          // Verify connection is alive before lending from pool
+          allowExitOnIdle: false,
+        },
       }),
     }),
 

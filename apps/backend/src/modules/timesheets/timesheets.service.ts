@@ -49,10 +49,20 @@ export class TimesheetsService {
         if (ts.entries) {
           ts.entries = ts.entries.map((e) => {
             const { timesheet, ...rest } = e as any;
-            return rest;
+            return {
+              ...rest,
+              entryDate: e.entryDate instanceof Date
+                ? `${e.entryDate.getFullYear()}-${String(e.entryDate.getMonth() + 1).padStart(2, '0')}-${String(e.entryDate.getDate()).padStart(2, '0')}`
+                : String(e.entryDate).split('T')[0]
+            };
           }) as any;
         }
-        return ts;
+        return {
+          ...ts,
+          weekStarting: ts.weekStarting instanceof Date
+            ? `${ts.weekStarting.getFullYear()}-${String(ts.weekStarting.getMonth() + 1).padStart(2, '0')}-${String(ts.weekStarting.getDate()).padStart(2, '0')}`
+            : String(ts.weekStarting).split('T')[0]
+        };
       });
       return {
         data: cleanData,
@@ -89,9 +99,6 @@ export class TimesheetsService {
     }
 
     const mappedData = assignments.map(a => {
-      const paymentRow = paymentSums.find(p => p.taskerId === a.taskerId && p.projectId === a.projectId);
-      const totalAmount = paymentRow ? `$${Number(paymentRow.total).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '$0.00';
-
       // Find ALL matching timesheets for this assignment (could be multiple weeks)
       const matchingTimesheets = existingTimesheets.filter(ts =>
         ts.taskerId === a.taskerId &&
@@ -99,30 +106,55 @@ export class TimesheetsService {
         ts.accountId === a.accountId
       );
 
+      let totalHours = 0;
+      let allEntries: any[] = [];
+      let primaryTs: any = null;
+
       if (matchingTimesheets.length > 0) {
         // Merge all entries from all matching timesheets into one row
-        const allEntries = matchingTimesheets.flatMap(ts =>
+        allEntries = matchingTimesheets.flatMap(ts =>
           (ts.entries || []).map(e => {
             const { timesheet, ...rest } = e as any;
-            return rest;
+            return {
+              ...rest,
+              entryDate: e.entryDate instanceof Date
+                ? `${e.entryDate.getFullYear()}-${String(e.entryDate.getMonth() + 1).padStart(2, '0')}-${String(e.entryDate.getDate()).padStart(2, '0')}`
+                : String(e.entryDate).split('T')[0]
+            };
           })
         );
-        const totalHours = allEntries.reduce((sum, e) => sum + Number(e.hoursWorked || 0), 0);
+        const totalMinutes = allEntries.reduce((sum, e) => sum + Math.round(Number(e.hoursWorked || 0) * 60), 0);
+        totalHours = totalMinutes / 60;
+        primaryTs = matchingTimesheets[0];
+      }
 
-        // Use the first real timesheet's ID for editing
-        const primaryTs = matchingTimesheets[0];
+      // Calculate the exact payout based on exact minutes and project's price per hour
+      const hourlyRate = Number(a.project?.pricePerHour || 0);
+      const exactMinutes = Math.round(totalHours * 60);
+      const exactPayout = exactMinutes * (hourlyRate / 60);
+      
+      const totalAmount = exactPayout > 0 
+        ? `₦${exactPayout.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` 
+        : '₦0.00';
+
+      if (primaryTs) {
         return {
           ...primaryTs,
           entries: allEntries,
           totalHours,
           totalAmount,
+          rawAmount: exactPayout, // Include raw amount for frontend use
           tasker: a.tasker,
           project: a.project,
           account: a.account,
+          weekStarting: primaryTs.weekStarting instanceof Date
+            ? `${primaryTs.weekStarting.getFullYear()}-${String(primaryTs.weekStarting.getMonth() + 1).padStart(2, '0')}-${String(primaryTs.weekStarting.getDate()).padStart(2, '0')}`
+            : String(primaryTs.weekStarting).split('T')[0],
         };
       } else {
         // Virtual row — tasker assigned but no timesheet exists yet
-        const virtualWeek = weekStarting || new Date().toISOString().split('T')[0];
+        const now = new Date();
+        const virtualWeek = weekStarting || `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
         return {
           id: `virtual|${a.taskerId}|${a.projectId}|${a.accountId}|${virtualWeek}`,
           taskerId: a.taskerId,
@@ -132,6 +164,7 @@ export class TimesheetsService {
           status: 'draft',
           totalHours: 0,
           totalAmount,
+          rawAmount: 0,
           entries: [],
           tasker: a.tasker,
           project: a.project,
@@ -220,17 +253,39 @@ export class TimesheetsService {
       let actualTimesheetId = timesheetId;
 
       if (timesheetId.startsWith('virtual|')) {
-        const [, taskerId, projectId, accountIdStr, weekStarting] = timesheetId.split('|');
+        const [, taskerId, projectId, accountIdStr] = timesheetId.split('|');
+        const accountId = accountIdStr === 'null' ? null : accountIdStr;
         
-        ts = this.timesheetsRepo.create({
-          taskerId,
-          projectId,
-          accountId: accountIdStr === 'null' ? null : accountIdStr,
-          weekStarting: weekStarting as any,
-          status: 'draft',
-          totalHours: 0,
+        // 1. Calculate the actual Monday of the entryDate strictly
+        const [y, m, d] = entryDate.split('-').map(Number);
+        const localDate = new Date(y, m - 1, d, 12, 0, 0); // Noon to avoid timezone shifts
+        const day = localDate.getDay();
+        const diff = localDate.getDate() - day + (day === 0 ? -6 : 1);
+        localDate.setDate(diff);
+        const correctWeekStarting = `${localDate.getFullYear()}-${String(localDate.getMonth() + 1).padStart(2, '0')}-${String(localDate.getDate()).padStart(2, '0')}`;
+
+        // 2. See if the timesheet for this specific week actually exists
+        ts = await this.timesheetsRepo.findOne({
+          where: {
+            taskerId,
+            projectId,
+            accountId: accountId || null,
+            weekStarting: correctWeekStarting as any,
+          },
+          relations: ['entries'],
         });
-        ts = await this.timesheetsRepo.save(ts);
+
+        if (!ts) {
+          ts = this.timesheetsRepo.create({
+            taskerId,
+            projectId,
+            accountId,
+            weekStarting: correctWeekStarting as any,
+            status: 'draft',
+            totalHours: 0,
+          });
+          ts = await this.timesheetsRepo.save(ts);
+        }
         actualTimesheetId = ts.id;
       } else {
         ts = await this.findById(timesheetId);
@@ -245,8 +300,13 @@ export class TimesheetsService {
       }
 
       let entry = ts.entries?.find(
-        (e) =>
-          new Date(e.entryDate).toISOString().split('T')[0] === entryDate,
+        (e) => {
+          // Normalize both sides to YYYY-MM-DD without going through UTC conversion
+          const stored = e.entryDate instanceof Date
+            ? `${e.entryDate.getFullYear()}-${String(e.entryDate.getMonth() + 1).padStart(2, '0')}-${String(e.entryDate.getDate()).padStart(2, '0')}`
+            : String(e.entryDate).split('T')[0];
+          return stored === entryDate;
+        },
       );
 
       if (entry) {
@@ -266,10 +326,11 @@ export class TimesheetsService {
       const allEntries = await this.entriesRepo.find({
         where: { timesheetId: actualTimesheetId },
       });
-      const totalHours = allEntries.reduce(
-        (sum, e) => sum + Number(e.hoursWorked),
+      const totalMinutes = allEntries.reduce(
+        (sum, e) => sum + Math.round(Number(e.hoursWorked) * 60),
         0,
       );
+      const totalHours = totalMinutes / 60;
       await this.timesheetsRepo.update(actualTimesheetId, { totalHours });
       return this.timesheetsRepo.findOne({
         where: { id: actualTimesheetId },

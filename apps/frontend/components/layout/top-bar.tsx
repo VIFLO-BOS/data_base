@@ -55,7 +55,7 @@ export function TopBar({
       <div className="flex items-center gap-2.5">
         {/* Mobile logo */}
         <div className="lg:hidden w-10 h-10 bg-gradient-to-br from-indigo-500 to-indigo-700 rounded-xl inline-flex flex-col justify-center items-center shrink-0 shadow-sm shadow-indigo-500/20">
-          <div className="text-white text-xl font-bold">D</div>
+          <div className="text-white text-xl font-bold">P</div>
         </div>
 
         {/* Desktop title */}
@@ -96,7 +96,9 @@ export function TopBar({
                     // Fallback to initials if image fails to load
                     (e.target as HTMLImageElement).style.display = 'none';
                     if (e.target && (e.target as HTMLImageElement).nextElementSibling) {
-                      ((e.target as HTMLImageElement).nextElementSibling as HTMLElement).style.display = 'flex';
+                      (
+                        (e.target as HTMLImageElement).nextElementSibling as HTMLElement
+                      ).style.display = 'flex';
                     }
                   }}
                 />
@@ -161,8 +163,8 @@ export function TopBar({
                 }}
                 className="w-full px-4 py-2.5 flex items-center gap-3 hover:bg-rose-50 transition-colors text-left group"
               >
-                <LogOut className="w-4 h-4 text-zinc-400 group-hover:text-rose-500 transition-colors" />
-                <span className="text-stone-700 text-sm font-medium group-hover:text-rose-600">
+                <LogOut className="w-4 h-4 text-red-400 group-hover:text-rose-500 transition-colors" />
+                <span className="text-red-400 text-sm font-medium group-hover:text-rose-600">
                   Log out
                 </span>
               </button>

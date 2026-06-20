@@ -32,7 +32,7 @@ export class HoursService {
     const qb = this.entriesRepo
       .createQueryBuilder('entry')
       .innerJoin('entry.timesheet', 'ts')
-      .select('COALESCE(SUM(entry.hours_worked), 0)', 'total');
+      .select('COALESCE(SUM(ROUND(entry.hours_worked * 60)), 0)', 'totalMinutes');
 
     if (filter.accountId) {
       qb.andWhere('ts.account_id = :accountId', { accountId: filter.accountId });
@@ -45,17 +45,29 @@ export class HoursService {
     }
     if (filter.startDate) {
       qb.andWhere('entry.entry_date >= :startDate', {
-        startDate: filter.startDate.toISOString().split('T')[0],
+        startDate: `${filter.startDate.getFullYear()}-${String(filter.startDate.getMonth() + 1).padStart(2, '0')}-${String(filter.startDate.getDate()).padStart(2, '0')}`,
       });
     }
     if (filter.endDate) {
       qb.andWhere('entry.entry_date <= :endDate', {
-        endDate: filter.endDate.toISOString().split('T')[0],
+        endDate: `${filter.endDate.getFullYear()}-${String(filter.endDate.getMonth() + 1).padStart(2, '0')}-${String(filter.endDate.getDate()).padStart(2, '0')}`,
       });
     }
 
     const row = await qb.getRawOne();
-    return Number(row?.total ?? 0);
+    return Number(row?.totalMinutes ?? 0) / 60;
+  }
+
+  async sumTaskerPayout(taskerId: string): Promise<number> {
+    const qb = this.entriesRepo
+      .createQueryBuilder('entry')
+      .innerJoin('entry.timesheet', 'ts')
+      .innerJoin('ts.project', 'project')
+      .select('SUM(ROUND(entry.hours_worked * 60) * (COALESCE(project.price_per_hour, 0) / 60))', 'totalPayout')
+      .where('ts.tasker_id = :taskerId', { taskerId });
+
+    const row = await qb.getRawOne();
+    return Number(row?.totalPayout ?? 0);
   }
 
   async getBreakdownByAssignment(accountIds?: string[]): Promise<HoursBreakdownRow[]> {
@@ -65,7 +77,7 @@ export class HoursService {
       .select('ts.account_id', 'accountId')
       .addSelect('ts.project_id', 'projectId')
       .addSelect('ts.tasker_id', 'taskerId')
-      .addSelect('COALESCE(SUM(entry.hours_worked), 0)', 'hours')
+      .addSelect('COALESCE(SUM(ROUND(entry.hours_worked * 60)), 0)', 'totalMinutes')
       .where('ts.account_id IS NOT NULL')
       .groupBy('ts.account_id')
       .addGroupBy('ts.project_id')
@@ -80,7 +92,7 @@ export class HoursService {
       accountId: r.accountId,
       projectId: r.projectId,
       taskerId: r.taskerId,
-      hours: Number(r.hours ?? 0),
+      hours: Number(r.totalMinutes ?? 0) / 60,
     }));
   }
 

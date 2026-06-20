@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { Search, X, Loader2 } from 'lucide-react';
+import { showError } from '@/lib/toast';
 import { getAccounts, Account } from '../../services/account-service';
 
 interface AccountSearchInputProps {
@@ -13,7 +14,7 @@ interface AccountSearchInputProps {
 export function AccountSearchInput({
   selectedAccounts,
   onChange,
-  placeholder = "Search and assign accounts...",
+  placeholder = 'Search and assign accounts...',
 }: AccountSearchInputProps) {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<Account[]>([]);
@@ -43,16 +44,19 @@ export function AccountSearchInput({
       setIsLoading(true);
       try {
         const allAccounts = await getAccounts(1, 100);
-        
+
         // Filter by name and exclude already selected
         const filtered = allAccounts.filter((a: Account) => {
-          return a.name.toLowerCase().includes(query.toLowerCase()) && !selectedAccounts.some(sa => sa.id === a.id);
+          return (
+            a.name.toLowerCase().includes(query.toLowerCase()) &&
+            !selectedAccounts.some((sa) => sa.id === a.id)
+          );
         });
-        
+
         setResults(filtered);
         setIsOpen(true);
       } catch (e) {
-        console.error('Failed to search accounts', e);
+        showError(e, 'Failed to search accounts');
       } finally {
         setIsLoading(false);
       }
@@ -63,7 +67,7 @@ export function AccountSearchInput({
   }, [query, selectedAccounts]);
 
   const handleSelect = (account: Account) => {
-    if (!selectedAccounts.some(sa => sa.id === account.id)) {
+    if (!selectedAccounts.some((sa) => sa.id === account.id)) {
       onChange([...selectedAccounts, { id: account.id, name: account.name }]);
     }
     setQuery('');
@@ -71,7 +75,7 @@ export function AccountSearchInput({
   };
 
   const handleRemove = (idToRemove: string) => {
-    onChange(selectedAccounts.filter(a => a.id !== idToRemove));
+    onChange(selectedAccounts.filter((a) => a.id !== idToRemove));
   };
 
   return (
@@ -98,7 +102,7 @@ export function AccountSearchInput({
       {/* Autocomplete Dropdown */}
       {isOpen && results.length > 0 && (
         <div className="absolute top-[68px] left-0 w-full bg-white border border-zinc-200 shadow-lg rounded-lg z-50 max-h-48 overflow-y-auto">
-          {results.map(account => (
+          {results.map((account) => (
             <div
               key={account.id}
               onClick={() => handleSelect(account)}

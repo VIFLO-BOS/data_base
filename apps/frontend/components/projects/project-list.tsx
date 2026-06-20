@@ -26,8 +26,8 @@ export function ProjectList({ projects, onDelete, onViewDetails }: ProjectListPr
       {/* Column Headers */}
       <div className="w-full pb-3 border-0 border-b shadow-[0_1px_2px_0_rgba(0,0,0,0.05)] grid grid-cols-[2fr_1fr_1fr_1.5fr_48px] items-center gap-4 hidden sm:grid">
         <div className="text-zinc-500 text-sm font-medium leading-5">Project Name</div>
-        <div className="text-zinc-500 text-sm font-medium leading-5">No. of Accounts</div>
-        <div className="text-zinc-500 text-sm font-medium leading-5">No. of Taskers</div>
+        <div className="text-zinc-500 text-sm font-medium leading-5">Number of Accounts</div>
+        <div className="text-zinc-500 text-sm font-medium leading-5">Number of Taskers</div>
         <div className="text-zinc-500 text-sm font-medium leading-5">Date created</div>
         <div className="w-12"></div>
       </div>
@@ -43,14 +43,14 @@ export function ProjectList({ projects, onDelete, onViewDetails }: ProjectListPr
             <span className="sm:hidden text-zinc-500 text-xs font-medium uppercase tracking-wider">
               Project Name
             </span>
-            <div className="text-stone-900 text-sm font-medium leading-5">{project.name}</div>
+            <div className="text-stone-900 text-xs font-medium leading-5">{project.name}</div>
           </div>
 
           <div className="flex flex-col sm:block gap-1">
             <span className="sm:hidden text-zinc-500 text-xs font-medium uppercase tracking-wider">
               No. of Accounts
             </span>
-            <div className="text-stone-900 text-sm font-medium leading-5">
+            <div className="text-stone-900 text-xs font-medium leading-5">
               {project.accountsCount}
             </div>
           </div>
@@ -59,7 +59,7 @@ export function ProjectList({ projects, onDelete, onViewDetails }: ProjectListPr
             <span className="sm:hidden text-zinc-500 text-xs font-medium uppercase tracking-wider">
               No. of Taskers
             </span>
-            <div className="text-stone-900 text-sm font-medium leading-5">
+            <div className="text-stone-900 text-xs font-medium leading-5">
               {project.taskersCount}
             </div>
           </div>
@@ -68,16 +68,16 @@ export function ProjectList({ projects, onDelete, onViewDetails }: ProjectListPr
             <span className="sm:hidden text-zinc-500 text-xs font-medium uppercase tracking-wider">
               Date created
             </span>
-            <div className="text-stone-900 text-sm font-medium leading-5">
+            <div className="text-stone-900 text-xs font-medium leading-5">
               {project.dateCreated}
             </div>
           </div>
 
           <div className="absolute right-0 top-4 sm:static flex justify-end items-center">
-            <ActionMenu 
-              projectId={project.id} 
-              onDelete={onDelete} 
-              onViewDetails={() => onViewDetails && onViewDetails(project)} 
+            <ActionMenu
+              projectId={project.id}
+              onDelete={onDelete}
+              onViewDetails={() => onViewDetails && onViewDetails(project)}
             />
           </div>
         </div>
@@ -86,12 +86,12 @@ export function ProjectList({ projects, onDelete, onViewDetails }: ProjectListPr
   );
 }
 
-function ActionMenu({ 
-  projectId, 
-  onDelete, 
-  onViewDetails 
-}: { 
-  projectId: string; 
+function ActionMenu({
+  projectId,
+  onDelete,
+  onViewDetails
+}: {
+  projectId: string;
   onDelete?: (id: string) => void;
   onViewDetails?: () => void;
 }) {

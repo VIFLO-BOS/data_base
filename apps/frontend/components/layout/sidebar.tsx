@@ -37,7 +37,7 @@ export function Sidebar() {
 
   const primaryRole = user?.roles?.[0] || 'admin';
   let currentNavItems = adminNavItems;
-  
+
   if (primaryRole === 'client') {
     currentNavItems = clientNavItems;
   } else if (primaryRole === 'tasker') {
@@ -49,11 +49,11 @@ export function Sidebar() {
       {/* Logo */}
       <div className="self-stretch h-20 px-4 py-2.5 bg-white border-0 border-b shadow-[0_1px_2px_0_rgba(0,0,0,0.05)] inline-flex justify-start items-center gap-3 shrink-0">
         <div className="w-11 h-11 bg-gradient-to-br from-indigo-500 to-indigo-700 rounded-xl inline-flex flex-col justify-center items-center gap-2 shrink-0 shadow-md shadow-indigo-500/20">
-          <div className="text-white text-2xl font-bold tracking-tight">D</div>
+          <div className="text-white text-2xl font-bold tracking-tight">P</div>
         </div>
         <div className="flex flex-col">
           <div className="text-stone-900 text-lg font-semibold tracking-[-0.02em] leading-5">
-            Database
+            Paylio
           </div>
         </div>
       </div>

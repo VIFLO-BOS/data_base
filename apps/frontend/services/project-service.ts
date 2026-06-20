@@ -110,3 +110,8 @@ export async function removeAccountFromProject(projectId: string, accountId: str
   const { data } = await apiClient.delete<any>(`/projects/${projectId}/accounts/${accountId}`);
   return data.data;
 }
+
+export async function replaceTaskersForAccountProject(accountId: string, projectId: string, taskerIds: string[]) {
+  const { data } = await apiClient.post<any>(`/assignments/accounts/${accountId}/projects/${projectId}/taskers`, { taskerIds });
+  return data.data;
+}

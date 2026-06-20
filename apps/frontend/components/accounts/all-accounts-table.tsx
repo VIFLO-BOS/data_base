@@ -2,6 +2,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { MoreVertical, ChevronDown } from 'lucide-react';
+import { showError } from '@/lib/toast';
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
 
 /**
@@ -20,7 +21,7 @@ function ProjectDropdown({ value }: { value: string }) {
         const list = await getProjects(1, 100);
         setProjects(['All Projects', ...list.map((p) => p.name)]);
       } catch (e) {
-        console.error(e);
+        showError(e, 'Failed to load projects');
       }
     }
     fetchProjects();
@@ -73,7 +74,7 @@ interface AccountRowData {
   id: string;
   name: string;
   assignedTasker: string;
-  totalHours: number;
+  totalHours: number | string;
   isArchived?: boolean;
 }
 

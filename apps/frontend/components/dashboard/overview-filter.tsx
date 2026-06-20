@@ -44,9 +44,16 @@ export function OverviewFilter({
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   // State for the calendar view (which month/year we are currently looking at)
-  const [currentViewDate, setCurrentViewDate] = useState(
-    selectedDate ? new Date(selectedDate) : new Date(),
-  );
+  const getSafeDate = (dStr?: string) => {
+    if (!dStr) return new Date();
+    if (dStr.includes('-')) {
+      const [y, m, d] = dStr.split('T')[0].split('-').map(Number);
+      return new Date(y, m - 1, d || 1, 12, 0, 0);
+    }
+    return new Date(dStr);
+  };
+
+  const [currentViewDate, setCurrentViewDate] = useState(getSafeDate(selectedDate));
 
   // Close when clicking outside
   useEffect(() => {
@@ -63,7 +70,7 @@ export function OverviewFilter({
 
   const formatDisplayDate = (dateStr?: string) => {
     if (!dateStr) return 'Select Date';
-    const d = new Date(dateStr);
+    const d = getSafeDate(dateStr);
     return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
   };
 
@@ -90,7 +97,7 @@ export function OverviewFilter({
     setIsCalendarOpen(false);
   };
 
-  const parsedSelectedDate = selectedDate ? new Date(selectedDate) : null;
+  const parsedSelectedDate = selectedDate ? getSafeDate(selectedDate) : null;
 
   return (
     <div className="self-stretch flex flex-wrap justify-start items-center gap-2.5">

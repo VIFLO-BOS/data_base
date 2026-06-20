@@ -6,6 +6,7 @@ import { apiClient } from './api-client';
 import type { PaginatedResponse } from './project-service';
 
 export interface Account {
+  clientName: string;
   id: string;
   name: string;
   email: string;

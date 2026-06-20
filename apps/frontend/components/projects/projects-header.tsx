@@ -31,7 +31,7 @@ export function ProjectsHeader({ count, onNewClick }: ProjectsHeaderProps) {
         className="px-4 py-2 rounded-lg bg-indigo-600 text-white flex justify-center items-center gap-1.5 cursor-pointer hover:bg-indigo-700 active:bg-indigo-800 transition-all duration-150 shadow-sm shadow-indigo-600/20"
       >
         <Plus className="w-4 h-4" />
-        <span className="text-sm font-semibold leading-5">New Project</span>
+        <span className="text-sm font-semibold leading-5">New</span>
       </button>
     </div>
   );

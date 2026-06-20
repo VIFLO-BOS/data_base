@@ -11,10 +11,15 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import { json, urlencoded } from 'express';
+import * as pg from 'pg';
+
+// Force PostgreSQL DATE columns to return as plain "YYYY-MM-DD" strings
+// instead of JavaScript Date objects, preventing timezone shift bugs.
+pg.types.setTypeParser(1082, (val: string) => val);
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, { bodyParser: false });
-  
+
   // Configure body parsers with increased payload limits
   app.use(json({ limit: '50mb' }));
   app.use(urlencoded({ extended: true, limit: '50mb' }));
@@ -26,6 +31,10 @@ async function bootstrap() {
     origin: config.get<string>('app.frontendUrl'),
     credentials: true,
   });
+
+  // Trust the first proxy hop (needed for express-rate-limit behind a reverse proxy)
+  const expressApp = app.getHttpAdapter().getInstance();
+  expressApp.set('trust proxy', 1);
 
   // Security headers
   app.use(helmet());
@@ -67,6 +76,5 @@ async function bootstrap() {
   console.log(`Swagger docs at http://localhost:${port}/api/docs`);
 
   // Log startup information
-  
 }
 bootstrap();

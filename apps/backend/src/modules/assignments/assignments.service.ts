@@ -159,7 +159,7 @@ export class AssignmentsService implements OnModuleInit {
     if (!row) throw new NotFoundException('Assignment not found');
 
     row.status = status;
-    if (status === 'removed' || status === 'inactive') {
+    if (status === 'removed') {
       row.removedAt = new Date();
     } else {
       row.removedAt = null;
@@ -225,7 +225,7 @@ export class AssignmentsService implements OnModuleInit {
 
   async getAssignmentsForTasker(taskerId: string) {
     return this.aptRepo.find({
-      where: { taskerId, status: 'active', removedAt: IsNull() },
+      where: { taskerId, removedAt: IsNull() },
       relations: ['project', 'account'],
       order: { assignedAt: 'DESC' },
     });

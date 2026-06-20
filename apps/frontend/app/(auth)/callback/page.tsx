@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Loader2 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
+import { showError } from '@/lib/toast';
 import { useAuthStore } from '@/store/authStore';
 
 export default function AuthCallbackPage() {
@@ -14,32 +15,36 @@ export default function AuthCallbackPage() {
   useEffect(() => {
     const handleCallback = async () => {
       try {
-        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-        
+        const {
+          data: { session },
+          error: sessionError,
+        } = await supabase.auth.getSession();
+
         if (sessionError) throw sessionError;
         if (!session?.user) throw new Error('No active session found.');
 
         const user = session.user;
         const metadata = user.user_metadata || {};
-        
+
         const email = user.email!;
         // GitHub might not provide full_name, fallback to user_name or email prefix
         const fullName = metadata.full_name || metadata.user_name || email.split('@')[0];
         const avatarUrl = metadata.avatar_url;
-        
+
         const nameParts = fullName.trim().split(/\s+/);
         const firstName = nameParts[0];
         const lastName = nameParts.slice(1).join(' ') || '';
 
         // Retrieve role intent if they registered
-        const role = typeof window !== 'undefined' ? localStorage.getItem('oauth_role') || 'client' : 'client';
+        const role =
+          typeof window !== 'undefined' ? localStorage.getItem('oauth_role') || 'client' : 'client';
 
         const { success, error: signInError } = await oauthSignIn(
           email,
           firstName,
           lastName,
           avatarUrl,
-          role
+          role,
         );
 
         if (!success) throw new Error(signInError || 'Failed to sync OAuth with backend');
@@ -60,7 +65,7 @@ export default function AuthCallbackPage() {
           router.push('/admin/dashboard');
         }
       } catch (err) {
-        console.error('OAuth Callback Error:', err);
+        showError(err, 'An error occurred during authentication');
         setError(err instanceof Error ? err.message : 'An error occurred during authentication.');
       }
     };
@@ -73,8 +78,18 @@ export default function AuthCallbackPage() {
       {error ? (
         <div className="text-center">
           <div className="w-12 h-12 rounded-full bg-red-500/20 flex items-center justify-center mx-auto mb-4">
-            <svg className="w-6 h-6 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            <svg
+              className="w-6 h-6 text-red-500"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M6 18L18 6M6 6l12 12"
+              />
             </svg>
           </div>
           <h2 className="text-xl font-semibold text-white mb-2">Authentication Failed</h2>
@@ -91,7 +106,9 @@ export default function AuthCallbackPage() {
           <Loader2 className="w-8 h-8 animate-spin text-indigo-500" />
           <div>
             <h2 className="text-lg font-medium text-white tracking-tight">Completing sign in...</h2>
-            <p className="text-sm text-zinc-400 mt-1">Please wait while we set up your workspace.</p>
+            <p className="text-sm text-zinc-400 mt-1">
+              Please wait while we set up your workspace.
+            </p>
           </div>
         </div>
       )}

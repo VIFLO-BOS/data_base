@@ -34,6 +34,14 @@ import {
 } from '../../../../services/assignment-service';
 import { Loader2 } from 'lucide-react';
 
+function formatHoursText(hours: number | string | null | undefined): string {
+  if (!hours) return '0h:00m';
+  const totalMins = Math.round(Number(hours) * 60);
+  const h = Math.floor(totalMins / 60);
+  const m = totalMins % 60;
+  return `${h}h:${String(m).padStart(2, '0')}m`;
+}
+
 /**
  * Admin Accounts Page
  * Full accounts lifecycle: empty state → list (All/Active/Archived) → detail view.
@@ -61,29 +69,29 @@ export default function AccountsPage() {
     const renderProjects =
       a.projects && a.projects.length > 0
         ? a.projects.map((p: any) => {
-            const uniqueTaskers = p.taskers
-              ? Array.from(new Map(p.taskers.map((t: any) => [t.id, t])).values())
-              : [];
-            const taskerRows = uniqueTaskers.map((t: any) => ({
-              id: t.id,
-              name: `${t.firstName || ''} ${t.lastName || ''}`.trim() || t.email || 'Tasker',
-              status: t.assignmentStatus || t.status || 'active',
-              hours: Number(t.hours ?? 0),
-            }));
-            return {
-              id: p.id,
-              name: p.name,
-              assignedTaskers: taskerRows.map((t) => t.name).join(' & ') || 'No taskers',
-              totalHours: p.totalHours || 0,
-              taskers: taskerRows,
-            };
-          })
+          const uniqueTaskers = p.taskers
+            ? Array.from(new Map(p.taskers.map((t: any) => [t.id, t])).values())
+            : [];
+          const taskerRows = uniqueTaskers.map((t: any) => ({
+            id: t.id,
+            name: `${t.firstName || ''} ${t.lastName || ''}`.trim() || t.email || 'Tasker',
+            status: t.assignmentStatus || t.status || 'active',
+            hours: Number(t.hours ?? 0),
+          }));
+          return {
+            id: p.id,
+            name: p.name,
+            assignedTaskers: taskerRows.map((t) => t.name).join(' & ') || 'No taskers',
+            totalHours: formatHoursText(p.totalHours || 0),
+            taskers: taskerRows,
+          };
+        })
         : [];
 
     return {
       ...a,
       assignedTasker: assignedTaskerStr,
-      totalHours: a.totalHours || 0,
+      totalHours: formatHoursText(a.totalHours || 0),
       isArchived: a.status === 'Inactive',
       dateCreated: new Date(a.createdAt).toLocaleDateString('en-US', {
         weekday: 'short',
@@ -100,7 +108,7 @@ export default function AccountsPage() {
           0,
         ) ||
         0,
-      totalHoursLogged: a.totalHours || 0,
+      totalHoursLogged: formatHoursText(a.totalHours || 0),
       projects: renderProjects,
       allTaskers: allTaskers,
     };
@@ -140,7 +148,7 @@ export default function AccountsPage() {
     name: string;
     assignedTaskers: string;
     taskers?: { id: string; name: string }[];
-    totalHours: number;
+    totalHours: number | string;
   } | null>(null);
 
   const selectedAccount = mappedAccounts.find((a) => a.id === selectedAccountId) || null;
@@ -179,30 +187,37 @@ export default function AccountsPage() {
     projectId?: string;
     projectName?: string;
     isNewProject: boolean;
+    accountId?: string;
     accountName: string;
     clientName: string;
     taskers: { id: string; name: string }[];
   }) {
     try {
-      const response = await createAccount({
-        name: data.accountName,
-        email: `${data.accountName.toLowerCase().replace(/\s/g, '')}@example.com`,
-      });
-      const newAccount = response as any;
+      let createdAccountId = data.accountId;
+      let newAccountName = data.accountName;
+
+      if (!createdAccountId) {
+        const response = await createAccount({
+          name: data.accountName,
+          email: `${data.accountName.toLowerCase().replace(/\s/g, '')}@example.com`,
+        });
+        const newAccount = response as any;
+        createdAccountId = newAccount.id || newAccount.data?.id;
+        newAccountName = newAccount.name || data.accountName;
+      }
 
       let targetProjectId = data.projectId;
 
       if (data.isNewProject && data.projectName) {
         const newProject = await createProject({
           name: data.projectName,
-          description: `Created via Account ${newAccount.name}`,
+          description: `Created via Account ${newAccountName}`,
           taskerIds: data.taskers.map((t) => t.id),
         });
         targetProjectId = (newProject as any).id || (newProject as any).data?.id;
       }
 
-      if (targetProjectId) {
-        const createdAccountId = newAccount.id || newAccount.data?.id;
+      if (targetProjectId && createdAccountId) {
         await assignAccountToProject(targetProjectId, createdAccountId);
         if (data.taskers?.length) {
           await replaceAccountProjectTaskers(
@@ -232,7 +247,7 @@ export default function AccountsPage() {
     if (editingAccount) {
       try {
         await updateAccount(editingAccount.id, { name: data.accountName });
-        
+
         if (data.projectId) {
           await assignAccountToProject(data.projectId, editingAccount.id);
           await replaceAccountProjectTaskers(
@@ -351,10 +366,10 @@ export default function AccountsPage() {
         const updatedProjects = currentProjects.map((p: any) =>
           p.name === editingProject.name
             ? {
-                ...p,
-                name: data.project,
-                assignedTaskers: data.taskers.map((t) => t.name).join(' & '),
-              }
+              ...p,
+              name: data.project,
+              assignedTaskers: data.taskers.map((t) => t.name).join(' & '),
+            }
             : p,
         );
         await updateAccount(selectedAccount.id, { settings: { projects: updatedProjects } } as any);
@@ -414,12 +429,12 @@ export default function AccountsPage() {
             setSelectedAccountId(null);
           }}
           onAddProject={() => setIsAddProjectOpen(true)}
-          onEditProject={(project) => {
-            setEditingProject(project);
+          onEditProject={(project: React.SetStateAction<{ id?: string | undefined; name: string; assignedTaskers: string; taskers?: { id: string; name: string; }[] | undefined; totalHours: number | string; } | null>) => {
+            setEditingProject(project as any);
             setIsEditProjectOpen(true);
           }}
           onRemoveProject={handleRemoveProject}
-          onToggleTaskerStatus={async (projectId, taskerId, status) => {
+          onToggleTaskerStatus={async (projectId: string, taskerId: string, status: any) => {
             if (!selectedAccount) return;
             try {
               await updateAssignmentStatus(selectedAccount.id, projectId, taskerId, status as any);

@@ -38,7 +38,7 @@ export class RegisterDto {
 
   @ApiProperty({ example: 'tasker', description: 'Role to register as (client or tasker)' })
   @IsString()
-  @Matches(/^(client|tasker|admin)$/, { message: 'Role must be either client, tasker, or admin' })
+  @Matches(/^(client|tasker)$/, { message: 'Role must be either client or tasker' })
   role: string;
 
   @ApiPropertyOptional({ example: 'https://example.com/avatar.jpg', description: 'Profile image URL or Base64' })

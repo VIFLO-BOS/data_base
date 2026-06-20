@@ -42,9 +42,9 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
           {/* Logo */}
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-blue-500 backdrop-blur-sm rounded-xl flex items-center justify-center ring-1 ring-blue/20">
-              <span className="font-bold text-white text-xl">D</span>
+              <span className="font-bold text-white text-xl">P</span>
             </div>
-            <span className="text-white text-xl font-semibold tracking-tight">Database</span>
+            <span className="text-white text-xl font-semibold tracking-tight">Paylio</span>
           </div>
 
           {/* Sliding Content */}

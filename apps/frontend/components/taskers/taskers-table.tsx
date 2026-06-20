@@ -2,6 +2,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { MoreVertical, ChevronDown } from 'lucide-react';
+import { showError } from '@/lib/toast';
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
 
 /**
@@ -20,7 +21,7 @@ function ProjectDropdown({ value }: { value: string }) {
         const list = await getProjects(1, 100);
         setProjects(['All Projects', ...list.map((p) => p.name)]);
       } catch (e) {
-        console.error(e);
+        showError(e, 'Failed to load projects');
       }
     }
     fetchProjects();
@@ -38,9 +39,8 @@ function ProjectDropdown({ value }: { value: string }) {
     <div className="relative" ref={ref}>
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className={`min-w-[180px] h-10 px-3 rounded-lg bg-white border flex justify-between items-center gap-3 hover:bg-zinc-50 transition-all cursor-pointer ${
-          isOpen ? 'border-indigo-500 ring-[3px] ring-indigo-500/15' : 'border-zinc-300'
-        }`}
+        className={`min-w-[180px] h-10 px-3 rounded-lg bg-white border flex justify-between items-center gap-3 hover:bg-zinc-50 transition-all cursor-pointer ${isOpen ? 'border-indigo-500 ring-[3px] ring-indigo-500/15' : 'border-zinc-300'
+          }`}
       >
         <span className="text-stone-900 text-sm font-medium">{selected}</span>
         <ChevronDown
@@ -56,9 +56,8 @@ function ProjectDropdown({ value }: { value: string }) {
                 setSelected(project);
                 setIsOpen(false);
               }}
-              className={`w-full px-3 py-2 text-left text-sm font-medium transition-colors hover:bg-zinc-50 ${
-                project === selected ? 'text-indigo-600 bg-indigo-50' : 'text-stone-700'
-              }`}
+              className={`w-full px-3 py-2 text-left text-sm font-medium transition-colors hover:bg-zinc-50 ${project === selected ? 'text-indigo-600 bg-indigo-50' : 'text-stone-700'
+                }`}
             >
               {project}
             </button>
@@ -73,7 +72,8 @@ interface TaskerRowData {
   id: string;
   tasker: string;
   account: string;
-  totalHours: number;
+  totalHours: number | string;
+  totalAmount?: string;
 }
 
 interface TaskersTableProps {
@@ -125,10 +125,11 @@ export function TaskersTable({
       {/* Table Content */}
       <div className="w-full flex flex-col gap-0">
         {/* Column Headers */}
-        <div className="w-full py-3 border-0 border-b shadow-[0_1px_2px_0_rgba(0,0,0,0.05)] grid grid-cols-[2fr_2fr_1fr_48px] items-center gap-4">
+        <div className="w-full py-3 border-0 border-b shadow-[0_1px_2px_0_rgba(0,0,0,0.05)] grid grid-cols-[2fr_2fr_1fr_1.5fr_48px] items-center gap-4">
           <div className="text-zinc-500 text-sm font-medium leading-5">Tasker</div>
           <div className="text-zinc-500 text-sm font-medium leading-5">Account(s)</div>
           <div className="text-zinc-500 text-sm font-medium leading-5">Total Hours</div>
+          <div className="text-zinc-500 text-sm font-medium leading-5">Total Amount</div>
           <div className="w-12"></div>
         </div>
 
@@ -136,12 +137,13 @@ export function TaskersTable({
         {taskers.map((row, index) => (
           <div
             key={index}
-            className="w-full py-4 border-0 border-b shadow-[0_1px_2px_0_rgba(0,0,0,0.05)] grid grid-cols-[2fr_2fr_1fr_48px] items-center gap-4 group hover:bg-zinc-50 transition-colors"
+            className="w-full py-4 border-0 border-b shadow-[0_1px_2px_0_rgba(0,0,0,0.05)] grid grid-cols-[2fr_2fr_1fr_1.5fr_48px] items-center gap-4 group hover:bg-zinc-50 transition-colors"
             style={{ position: 'relative' }}
           >
             <div className="text-stone-900 text-sm font-medium leading-5">{row.tasker}</div>
             <div className="text-stone-900 text-sm font-medium leading-5">{row.account}</div>
             <div className="text-stone-900 text-sm font-medium leading-5">{row.totalHours}</div>
+            <div className="text-stone-900 text-sm font-medium leading-5">{row.totalAmount || '₦0.00'}</div>
             <div className="flex justify-end items-center relative">
               <DropdownMenu.Root>
                 <DropdownMenu.Trigger asChild>

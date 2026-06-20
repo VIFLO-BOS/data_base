@@ -2,6 +2,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { Search, ChevronDown } from 'lucide-react';
+import { showError } from '@/lib/toast';
 
 interface TimelineSearchFilterProps {
   projectFilter?: string;
@@ -20,7 +21,9 @@ export function TimelineSearchFilter({
   onSearchChange,
 }: Omit<TimelineSearchFilterProps, 'projects'>) {
   const [isOpen, setIsOpen] = useState(false);
-  const [selected, setSelected] = useState(projectFilter === 'Ventree' ? 'All Projects' : projectFilter);
+  const [selected, setSelected] = useState(
+    projectFilter === 'Ventree' ? 'All Projects' : projectFilter,
+  );
   const dropdownRef = useRef<HTMLDivElement>(null);
   const [projectsList, setProjectsList] = useState<string[]>(['All Projects']);
 
@@ -30,8 +33,9 @@ export function TimelineSearchFilter({
         const { getProjects } = await import('../../services/project-service');
         const list = await getProjects(1, 100);
         setProjectsList(['All Projects', ...list.map((p) => p.name)]);
+        console.log(setProjectsList);
       } catch (e) {
-        console.error(e);
+        showError(e, 'Failed to load projects');
       }
     }
     fetchProjects();
@@ -69,7 +73,9 @@ export function TimelineSearchFilter({
           }`}
         >
           <span className="text-stone-900 text-sm font-medium">{selected}</span>
-          <ChevronDown className={`w-4 h-4 text-zinc-400 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
+          <ChevronDown
+            className={`w-4 h-4 text-zinc-400 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`}
+          />
         </button>
 
         {isOpen && (

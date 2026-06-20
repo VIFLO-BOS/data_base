@@ -3,14 +3,15 @@
 import React, { useState, useEffect } from 'react';
 import { X, ChevronDown } from 'lucide-react';
 import { getProjects, Project } from '../../services/project-service';
+import { showError } from '@/lib/toast';
 import { TaskerSearchInput } from '../taskers/tasker-search-input';
 
 interface EditProjectModalProps {
   onClose: () => void;
-  onSave: (data: { project: string; taskers: {id: string; name: string}[] }) => void;
+  onSave: (data: { project: string; taskers: { id: string; name: string }[] }) => void;
   initialData: {
     project: string;
-    taskers: {id: string; name: string}[];
+    taskers: { id: string; name: string }[];
   };
 }
 
@@ -20,7 +21,9 @@ interface EditProjectModalProps {
  */
 export function EditProjectModal({ onClose, onSave, initialData }: EditProjectModalProps) {
   const [project, setProject] = useState(initialData.project);
-  const [selectedTaskers, setSelectedTaskers] = useState<{id: string; name: string}[]>(initialData.taskers);
+  const [selectedTaskers, setSelectedTaskers] = useState<{ id: string; name: string }[]>(
+    initialData.taskers,
+  );
   const [projectsList, setProjectsList] = useState<Project[]>([]);
   const [isLoadingProjects, setIsLoadingProjects] = useState(true);
 
@@ -31,7 +34,7 @@ export function EditProjectModal({ onClose, onSave, initialData }: EditProjectMo
         const list = await getProjects(1, 100);
         setProjectsList(list);
       } catch (error) {
-        console.error('Failed to fetch projects', error);
+        showError(error, 'Failed to fetch projects');
       } finally {
         setIsLoadingProjects(false);
       }
@@ -46,9 +49,7 @@ export function EditProjectModal({ onClose, onSave, initialData }: EditProjectMo
       <div className="w-full max-w-[595px] p-6 bg-white rounded-xl border-0 shadow-sm/80 flex flex-col gap-4 animate-in fade-in zoom-in-95 duration-200">
         {/* Header */}
         <div className="pb-3 border-0 border-b shadow-[0_1px_2px_0_rgba(0,0,0,0.05)] flex justify-between items-center">
-          <h2 className="text-stone-900 text-2xl font-medium leading-6">
-            Edit Project
-          </h2>
+          <h2 className="text-stone-900 text-2xl font-medium leading-6">Edit Project</h2>
           <button
             onClick={onClose}
             className="p-1.5 rounded-lg hover:bg-zinc-100 transition-colors cursor-pointer"
@@ -67,10 +68,12 @@ export function EditProjectModal({ onClose, onSave, initialData }: EditProjectMo
               className="w-full p-3 rounded-xl border-0 shadow-sm text-sm font-medium leading-6 appearance-none bg-white cursor-pointer text-stone-900 outline-none"
             >
               <option value="" disabled>
-                {isLoadingProjects ? "Loading projects..." : "Select Project"}
+                {isLoadingProjects ? 'Loading projects...' : 'Select Project'}
               </option>
               {projectsList.map((p) => (
-                <option key={p.id} value={p.name}>{p.name}</option>
+                <option key={p.id} value={p.name}>
+                  {p.name}
+                </option>
               ))}
             </select>
             <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-stone-500 pointer-events-none" />
@@ -78,7 +81,7 @@ export function EditProjectModal({ onClose, onSave, initialData }: EditProjectMo
         </div>
 
         {/* Assigned Tasker(s) Autocomplete */}
-        <TaskerSearchInput 
+        <TaskerSearchInput
           selectedTaskers={selectedTaskers}
           onChange={setSelectedTaskers}
           placeholder="Search taskers"
@@ -100,4 +103,3 @@ export function EditProjectModal({ onClose, onSave, initialData }: EditProjectMo
     </div>
   );
 }
-

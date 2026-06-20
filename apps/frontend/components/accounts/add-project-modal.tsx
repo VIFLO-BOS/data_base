@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, ChevronDown } from 'lucide-react';
 import { getProjects, Project } from '../../services/project-service';
+import { showError } from '@/lib/toast';
 import { TaskerSearchInput } from '../taskers/tasker-search-input';
 
 interface AddProjectModalProps {
@@ -34,7 +35,7 @@ export function AddProjectModal({ onClose, onAdd }: AddProjectModalProps) {
         const list = await getProjects(1, 100);
         setProjectsList(list);
       } catch (error) {
-        console.error('Failed to fetch projects', error);
+        showError(error, 'Failed to fetch projects');
       } finally {
         setIsLoadingProjects(false);
       }

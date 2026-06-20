@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Search, X, Loader2 } from 'lucide-react';
 import { getTaskers, Tasker } from '../../services/tasker-service';
+import { showError } from '@/lib/toast';
 
 interface TaskerSearchInputProps {
   selectedTaskers: { id: string; name: string }[];
@@ -60,7 +61,7 @@ export function TaskerSearchInput({
         setResults(filtered);
         setIsOpen(true);
       } catch (e) {
-        console.error('Failed to search taskers', e);
+        showError(e, 'Failed to search taskers');
       } finally {
         setIsLoading(false);
       }

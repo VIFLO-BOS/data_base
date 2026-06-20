@@ -2,11 +2,29 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { getTaskerById, Tasker, addTaskerPayment, addTaskerDailyHour, updateTasker, updateTaskerPayment, updateTaskerDailyHour } from '../../../../../services/tasker-service';
+import {
+  getTaskerById,
+  Tasker,
+  addTaskerPayment,
+  addTaskerDailyHour,
+  updateTasker,
+  updateTaskerPayment,
+  updateTaskerDailyHour,
+} from '../../../../../services/tasker-service';
 import { getProjects, Project } from '../../../../../services/project-service';
 import { getErrorMessage } from '../../../../../services/api-client';
-import { ArrowLeft, Loader2, Phone, Mail, Building, Briefcase, Plus, Edit2 } from 'lucide-react';
+import { ArrowLeft, Loader2, MoreVertical, ChevronRight } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { AssignAccountModal } from '../../../../../components/taskers/assign-account-modal';
+import { deleteAccount } from '@/services/account-service';
+
+function formatHoursText(hours: number | string | null | undefined): string {
+  if (!hours) return '0h:00m';
+  const totalMins = Math.round(Number(hours) * 60);
+  const h = Math.floor(totalMins / 60);
+  const m = totalMins % 60;
+  return `${h}h:${String(m).padStart(2, '0')}m`;
+}
 
 export default function TaskerDetailsPage({ params }: { params: Promise<{ taskerId: string }> }) {
   const router = useRouter();
@@ -39,9 +57,11 @@ export default function TaskerDetailsPage({ params }: { params: Promise<{ tasker
   // Inline Edit states
   const [isEditingContact, setIsEditingContact] = useState(false);
   const [contactForm, setContactForm] = useState({ email: '', phone: '' });
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   const [isEditingBank, setIsEditingBank] = useState(false);
   const [bankForm, setBankForm] = useState({ bankName: '', accountName: '', accountNumber: '' });
+  const [isAssignAccountOpen, setIsAssignAccountOpen] = useState(false);
 
   useEffect(() => {
     fetchTasker();
@@ -76,11 +96,7 @@ export default function TaskerDetailsPage({ params }: { params: Promise<{ tasker
       for (const ts of data.timesheets || []) {
         if (ts.accountId && ts.projectId) {
           const label = `${ts.account?.name || 'Account'} — ${ts.project?.name || 'Project'}`;
-          if (
-            !contexts.some(
-              (c) => c.accountId === ts.accountId && c.projectId === ts.projectId,
-            )
-          ) {
+          if (!contexts.some((c) => c.accountId === ts.accountId && c.projectId === ts.projectId)) {
             contexts.push({
               accountId: ts.accountId,
               projectId: ts.projectId,
@@ -91,7 +107,11 @@ export default function TaskerDetailsPage({ params }: { params: Promise<{ tasker
       }
       setWorkContexts(contexts);
       setContactForm({ email: data.email || '', phone: data.phone || '' });
-      setBankForm({ bankName: data.bankName || '', accountName: data.accountName || '', accountNumber: data.accountNumber || '' });
+      setBankForm({
+        bankName: data.bankName || '',
+        accountName: data.accountName || '',
+        accountNumber: data.accountNumber || '',
+      });
     } catch (e) {
       console.error(e);
       toast.error('Failed to load tasker details');
@@ -189,6 +209,16 @@ export default function TaskerDetailsPage({ params }: { params: Promise<{ tasker
     }
   }
 
+  async function handleDeleteAccount(accountId: string) {
+    try {
+     await deleteAccount(accountId)
+      toast.success('Account deleted successfully');
+      fetchTasker()
+    } catch (err) {
+      toast.error(getErrorMessage(err) || 'Failed to delete account');
+    }
+  }
+
   if (isLoading) {
     return (
       <div className="w-full flex justify-center py-12">
@@ -205,9 +235,7 @@ export default function TaskerDetailsPage({ params }: { params: Promise<{ tasker
     );
   }
 
-  const payments = tasker.payments || [];
-  
-  // Flatten timesheet entries into a list of daily hours
+  // Calculate metrics
   const dailyHours = (tasker.timesheets || []).flatMap((ts: any) => {
     return (ts.entries || []).map((entry: any) => ({
       id: entry.id,
@@ -218,365 +246,385 @@ export default function TaskerDetailsPage({ params }: { params: Promise<{ tasker
       accountId: ts.account?.id || ts.accountId || null,
       project: ts.project,
       account: ts.account,
+      pricePerHour: Number(ts.project?.pricePerHour || 0),
     }));
-  }).sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  const projects = tasker.projects || [];
+  });
+
+  const totalProjects = tasker.projects?.length || 0;
+
+  const assignedAccountsMap = new Map<string, any>();
+  if (tasker?.projects) {
+    tasker.projects.forEach((p: { accounts: { id: any; name: any; }[]; id: any; name: any; }) => {
+      if (p.accounts) {
+        p.accounts.forEach((a: { id: any; name: any; }) => {
+          const key = `${p.id}-${a.id}`;
+          assignedAccountsMap.set(key, {
+            accountId: a.id,
+            accountName: a.name,
+            projectId: p.id,
+            projectName: p.name,
+            hours: 0,
+          });
+        });
+      }
+    });
+  }
+
+  dailyHours.forEach((h: { projectId: any; accountId: any; hours: any; account: { name: any; }; project: { name: any; }; }) => {
+    if (h.projectId && h.accountId) {
+      const key = `${h.projectId}-${h.accountId}`;
+      if (assignedAccountsMap.has(key)) {
+        assignedAccountsMap.get(key).hours += Number(h.hours);
+      } else {
+        assignedAccountsMap.set(key, {
+          accountId: h.accountId,
+          accountName: h.account?.name || 'Unknown Account',
+          projectId: h.projectId,
+          projectName: h.project?.name || 'Unknown Project',
+          hours: Number(h.hours),
+        });
+      }
+    }
+  });
+
+  const assignedAccountsList = Array.from(assignedAccountsMap.values());
+  const totalAccounts = assignedAccountsList.length;
+  const totalHours = dailyHours.reduce((acc: number, h: { hours: any; }) => acc + Number(h.hours), 0);
 
   return (
-    <div className="flex-1 flex flex-col gap-6 w-full max-w-6xl mx-auto pb-12">
-      {/* Header */}
-      <div className="flex items-center gap-4">
-        <button 
-          onClick={() => router.back()}
-          className="w-10 h-10 rounded-full hover:bg-zinc-100 flex items-center justify-center transition-colors border border-zinc-200 bg-white"
+    <>
+    <div className="flex-1 w-full mx-auto pb-12">
+      {/* Breadcrumbs */}
+      <div className="text-sm text-gray-500 mb-8 flex items-center gap-2">
+        <span
+          onClick={() => router.push('/admin/taskers')}
+          className="cursor-pointer hover:text-gray-700 transition-colors"
         >
-          <ArrowLeft className="w-5 h-5 text-stone-700" />
-        </button>
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-stone-900">
+          Taskers
+        </span>
+        <ChevronRight className="w-4 h-4 text-gray-400" />
+        <span className="text-gray-900 underline decoration-gray-400 underline-offset-4">
+          Profile
+        </span>
+      </div>
+
+      {/* Header Avatar and Name */}
+      <div className="flex items-center gap-3 mb-8">
+        <img
+          src={
+            tasker.avatarUrl ||
+            `https://ui-avatars.com/api/?name=${tasker.firstName}+${tasker.lastName}&background=random`
+          }
+          alt="Avatar"
+          className="w-10 h-10 rounded-full object-cover"
+        />
+        <h1 className="text-2xl font-bold text-gray-900">
+          {tasker.firstName} {tasker.lastName}
+        </h1>
+      </div>
+
+      {/* Card 1: Personal Details */}
+      <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm mb-6 relative">
+        <div className="flex justify-between items-center mb-8">
+          <h2 className="text-lg font-bold text-gray-900">Personal Details</h2>
+          {isEditingContact ? (
+            <button
+              onClick={handleSaveContact}
+              className="px-4 py-1.5 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700"
+            >
+              Save
+            </button>
+          ) : (
+            <div className="relative">
+              <button
+                onClick={() => setIsMenuOpen(!isMenuOpen)}
+                className="text-gray-900 hover:text-gray-700 p-1"
+              >
+                <MoreVertical className="w-5 h-5" />
+              </button>
+              {isMenuOpen && (
+                <div className="absolute right-0 mt-2 w-32 bg-white rounded-lg shadow-[0px_4px_24px_rgba(0,0,0,0.08)] py-1 z-10 border-0">
+                  <button
+                    onClick={() => {
+                      setIsEditingContact(true);
+                      setIsMenuOpen(false);
+                    }}
+                    className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                  >
+                    Edit
+                  </button>
+                  <button
+                    onClick={() => setIsMenuOpen(false)}
+                    className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                  >
+                    Archive
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        <div className="flex items-center gap-4 mb-8">
+          <div className="relative">
+            <div className="w-[88px] h-[88px] rounded-full p-1 border-2 border-pink-300">
+              <img
+                src={
+                  tasker.avatarUrl ||
+                  `https://ui-avatars.com/api/?name=${tasker.firstName}+${tasker.lastName}&background=random`
+                }
+                alt="Avatar"
+                className="w-full h-full rounded-full object-cover"
+              />
+            </div>
+            <div className="absolute bottom-1 right-1 w-4 h-4 bg-[#34C759] border-2 border-white rounded-full"></div>
+          </div>
+          <div className="font-semibold text-gray-900 text-lg">
             {tasker.firstName} {tasker.lastName}
-          </h1>
-          <div className="flex items-center gap-2 mt-1">
-            <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${tasker.status === 'Active' ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'}`}>
-              {tasker.status}
+          </div>
+        </div>
+
+        <div className="flex flex-col gap-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div className="bg-white rounded-xl p-4 border border-gray-100">
+              <div className="text-xs text-gray-400 font-medium mb-1.5">Phone Number</div>
+              {isEditingContact ? (
+                <input
+                  type="text"
+                  value={contactForm.phone}
+                  onChange={(e) => setContactForm({ ...contactForm, phone: e.target.value })}
+                  className="w-full text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded px-2 py-1 outline-none"
+                />
+              ) : (
+                <div className="text-sm font-medium text-gray-700">{tasker.phone || 'N/A'}</div>
+              )}
+            </div>
+            <div className="bg-white rounded-xl p-4 border border-gray-100">
+              <div className="text-xs text-gray-400 font-medium mb-1.5">Email</div>
+              {isEditingContact ? (
+                <input
+                  type="email"
+                  value={contactForm.email}
+                  onChange={(e) => setContactForm({ ...contactForm, email: e.target.value })}
+                  className="w-full text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded px-2 py-1 outline-none"
+                />
+              ) : (
+                <div className="text-sm font-medium text-gray-700">{tasker.email || 'N/A'}</div>
+              )}
+            </div>
+          </div>
+          <div className="grid grid-cols-4 gap-4">
+            <div className="bg-white rounded-xl p-4 border border-gray-100">
+              <div className="text-xs text-gray-400 font-medium mb-1.5">Project(s)</div>
+              <div className="text-sm font-medium text-gray-700">{totalProjects}</div>
+            </div>
+            <div className="bg-white rounded-xl p-4 border border-gray-100">
+              <div className="text-xs text-gray-400 font-medium mb-1.5">Account(s)</div>
+              <div className="text-sm font-medium text-gray-700">{totalAccounts}</div>
+            </div>
+            <div className="bg-white rounded-xl p-4 border border-gray-100">
+              <div className="text-xs text-gray-400 font-medium mb-1.5">Total Hours Logged</div>
+              <div className="text-sm font-medium text-gray-700">{formatHoursText(totalHours)}</div>
+            </div>
+            <div className="bg-white rounded-xl p-4 border border-gray-100">
+              <div className="text-xs text-gray-400 font-medium mb-1.5">Total Earned</div>
+              <div className="text-sm font-medium text-gray-700">
+                {(tasker as any).totalAmount || '₦0.00'}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Card 2: Financial Information */}
+      <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm mb-6">
+        <div className="flex justify-between items-center mb-6">
+          <h2 className="text-lg font-bold text-gray-900">Financial Information</h2>
+          {isEditingBank ? (
+            <button
+              onClick={handleSaveBank}
+              className="px-5 py-1.5 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 transition-colors"
+            >
+              Save
+            </button>
+          ) : (
+            <button
+              onClick={() => setIsEditingBank(true)}
+              className="px-5 py-2 text-sm font-medium text-[#4F46E5] border border-[#E0E7FF] rounded-xl hover:bg-indigo-50 transition-colors"
+            >
+              Edit
+            </button>
+          )}
+        </div>
+
+        <div className="grid grid-cols-3 gap-4">
+          <div className="bg-white rounded-xl p-4 border border-gray-100">
+            <div className="text-xs text-gray-400 font-medium mb-1.5">Bank</div>
+            {isEditingBank ? (
+              <input
+                type="text"
+                value={bankForm.bankName}
+                onChange={(e) => setBankForm({ ...bankForm, bankName: e.target.value })}
+                className="w-full text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded px-2 py-1 outline-none"
+              />
+            ) : (
+              <div className="text-sm font-medium text-gray-700">{tasker.bankName || 'N/A'}</div>
+            )}
+          </div>
+          <div className="bg-white rounded-xl p-4 border border-gray-100">
+            <div className="text-xs text-gray-400 font-medium mb-1.5">Account Name</div>
+            {isEditingBank ? (
+              <input
+                type="text"
+                value={bankForm.accountName}
+                onChange={(e) => setBankForm({ ...bankForm, accountName: e.target.value })}
+                className="w-full text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded px-2 py-1 outline-none"
+              />
+            ) : (
+              <div className="text-sm font-medium text-gray-700">
+                {tasker.accountName || 'N/A'}
+              </div>
+            )}
+          </div>
+          <div className="bg-white rounded-xl p-4 border border-gray-100">
+            <div className="text-xs text-gray-400 font-medium mb-1.5">Account Number</div>
+            {isEditingBank ? (
+              <input
+                type="text"
+                value={bankForm.accountNumber}
+                onChange={(e) => setBankForm({ ...bankForm, accountNumber: e.target.value })}
+                className="w-full text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded px-2 py-1 outline-none"
+              />
+            ) : (
+              <div className="text-sm font-medium text-gray-700">
+                {tasker.accountNumber ? '**********' : 'N/A'}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Card 3: Daily Work & Earnings History */}
+      <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm mb-6">
+        <div className="flex justify-between items-center mb-6">
+          <div className="flex items-center gap-3">
+            <h2 className="text-lg font-bold text-gray-900">Daily Work & Earnings History</h2>
+            <span className="bg-gray-100 text-gray-600 text-xs font-semibold px-2 py-0.5 rounded-md">
+              {dailyHours.length}
             </span>
           </div>
         </div>
-      </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        
-        {/* Left Column: Details */}
-        <div className="md:col-span-1 flex flex-col gap-6">
-          {/* Contact Info */}
-          <div className="bg-white p-6 rounded-xl border border-zinc-200 shadow-sm flex flex-col gap-4">
-            <div className="flex justify-between items-center border-b border-zinc-100 pb-3">
-              <h3 className="font-semibold text-stone-900">Contact Information</h3>
-              {!isEditingContact ? (
-                <button onClick={() => setIsEditingContact(true)} className="text-indigo-600 hover:text-indigo-700 text-sm font-medium">Edit</button>
+        <div className="overflow-hidden border border-gray-100 rounded-xl">
+          <table className="w-full text-left">
+            <thead className="bg-gray-50 border-b border-gray-100">
+              <tr>
+                <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase">Hours</th>
+                <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase">Amount</th>
+                <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase">Project</th>
+                <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase">Date</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {dailyHours.length === 0 ? (
+                <tr>
+                  <td colSpan={4} className="px-4 py-6 text-sm text-center text-gray-500">
+                    No work history
+                  </td>
+                </tr>
               ) : (
-                <div className="flex gap-2">
-                  <button onClick={() => setIsEditingContact(false)} className="text-zinc-500 hover:text-zinc-700 text-sm font-medium">Cancel</button>
-                  <button onClick={handleSaveContact} className="text-emerald-600 hover:text-emerald-700 text-sm font-medium">Save</button>
-                </div>
-              )}
-            </div>
-            {isEditingContact ? (
-              <div className="flex flex-col gap-3 text-sm">
-                <div className="flex flex-col gap-1">
-                  <label className="text-xs text-zinc-500">Email</label>
-                  <input type="email" value={contactForm.email} onChange={e => setContactForm({...contactForm, email: e.target.value})} className="h-8 px-2 border rounded outline-none focus:border-indigo-500" />
-                </div>
-                <div className="flex flex-col gap-1">
-                  <label className="text-xs text-zinc-500">Phone</label>
-                  <input type="text" value={contactForm.phone} onChange={e => setContactForm({...contactForm, phone: e.target.value})} className="h-8 px-2 border rounded outline-none focus:border-indigo-500" />
-                </div>
-              </div>
-            ) : (
-              <div className="flex flex-col gap-3 text-sm">
-                <div className="flex items-center gap-2 text-stone-700">
-                  <Mail className="w-4 h-4 text-zinc-400" />
-                  {tasker.email || 'N/A'}
-                </div>
-                <div className="flex items-center gap-2 text-stone-700">
-                  <Phone className="w-4 h-4 text-zinc-400" />
-                  {tasker.phone || 'N/A'}
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Bank Details */}
-          <div className="bg-white p-6 rounded-xl border border-zinc-200 shadow-sm flex flex-col gap-4">
-            <div className="flex justify-between items-center border-b border-zinc-100 pb-3">
-              <h3 className="font-semibold text-stone-900">Bank Details</h3>
-              {!isEditingBank ? (
-                <button onClick={() => setIsEditingBank(true)} className="text-indigo-600 hover:text-indigo-700 text-sm font-medium">Edit</button>
-              ) : (
-                <div className="flex gap-2">
-                  <button onClick={() => setIsEditingBank(false)} className="text-zinc-500 hover:text-zinc-700 text-sm font-medium">Cancel</button>
-                  <button onClick={handleSaveBank} className="text-emerald-600 hover:text-emerald-700 text-sm font-medium">Save</button>
-                </div>
-              )}
-            </div>
-            {isEditingBank ? (
-              <div className="flex flex-col gap-3 text-sm">
-                <div className="flex flex-col gap-1">
-                  <label className="text-xs text-zinc-500">Bank Name</label>
-                  <input type="text" value={bankForm.bankName} onChange={e => setBankForm({...bankForm, bankName: e.target.value})} className="h-8 px-2 border rounded outline-none focus:border-indigo-500" />
-                </div>
-                <div className="flex flex-col gap-1">
-                  <label className="text-xs text-zinc-500">Account Name</label>
-                  <input type="text" value={bankForm.accountName} onChange={e => setBankForm({...bankForm, accountName: e.target.value})} className="h-8 px-2 border rounded outline-none focus:border-indigo-500" />
-                </div>
-                <div className="flex flex-col gap-1">
-                  <label className="text-xs text-zinc-500">Account Number</label>
-                  <input type="text" value={bankForm.accountNumber} onChange={e => setBankForm({...bankForm, accountNumber: e.target.value})} className="h-8 px-2 border rounded outline-none focus:border-indigo-500" />
-                </div>
-              </div>
-            ) : (
-              <div className="flex flex-col gap-3 text-sm">
-                <div className="flex items-center gap-2 text-stone-700">
-                  <Building className="w-4 h-4 text-zinc-400" />
-                  <span className="font-medium">Bank:</span> {tasker.bankName || 'N/A'}
-                </div>
-                <div className="flex items-center gap-2 text-stone-700">
-                  <span className="w-4 h-4 text-zinc-400" />
-                  <span className="font-medium">Account Name:</span> {tasker.accountName || 'N/A'}
-                </div>
-                <div className="flex items-center gap-2 text-stone-700">
-                  <span className="w-4 h-4 text-zinc-400" />
-                  <span className="font-medium">Account Number:</span> {tasker.accountNumber || 'N/A'}
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Assigned Projects */}
-          <div className="bg-white p-6 rounded-xl border border-zinc-200 shadow-sm flex flex-col gap-4">
-            <h3 className="font-semibold text-stone-900 border-b border-zinc-100 pb-3">Assigned Projects</h3>
-            <div className="flex flex-col gap-3">
-              {projects.length > 0 ? projects.map(p => (
-                <div key={p.id} className="flex items-center gap-2 text-sm text-stone-700 bg-zinc-50 p-2 rounded border border-zinc-100">
-                  <Briefcase className="w-4 h-4 text-indigo-500" />
-                  {p.name}
-                </div>
-              )) : (
-                <div className="text-sm text-stone-500">No projects assigned</div>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Right Column: Payments & Hours */}
-        <div className="md:col-span-2 flex flex-col gap-6">
-          
-          {/* Payments Table */}
-          <div className="bg-white p-6 rounded-xl border border-zinc-200 shadow-sm flex flex-col gap-4">
-            <div className="flex justify-between items-center border-b border-zinc-100 pb-3">
-              <h3 className="font-semibold text-stone-900">Payments</h3>
-              <button 
-                onClick={() => {
-                  setEditingPaymentId(null);
-                  setPaymentForm({ amount: '', date: '', time: '', projectId: '' });
-                  setIsPaymentModalOpen(true);
-                }}
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 rounded-md text-sm font-medium transition-colors cursor-pointer"
-              >
-                <Plus className="w-4 h-4" /> Add Payment
-              </button>
-            </div>
-            {payments.length === 0 ? (
-              <div className="py-4 text-center text-sm text-zinc-500">No payments recorded.</div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm text-left">
-                  <thead className="text-xs text-zinc-500 uppercase bg-zinc-50">
-                    <tr>
-                      <th className="px-4 py-2 font-medium">Date</th>
-                      <th className="px-4 py-2 font-medium">Project</th>
-                      <th className="px-4 py-2 font-medium">Amount</th>
-                      <th className="px-4 py-2 font-medium text-right">Actions</th>
+                [...dailyHours].sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime()).map((h: any, idx: number) => {
+                  const exactMinutes = Math.round(Number(h.hours) * 60);
+                  const amount = exactMinutes * (Number(h.pricePerHour || 0) / 60);
+                  const formattedAmount = `₦${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+                  return (
+                    <tr key={idx} className="hover:bg-gray-50/50 transition-colors">
+                      <td className="px-4 py-3 text-sm font-medium text-gray-900">
+                        {formatHoursText(h.hours)}
+                      </td>
+                      <td className="px-4 py-3 text-sm font-medium text-indigo-600">
+                        {formattedAmount}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-600">
+                        {h.project?.name || 'Unassigned'}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-600">
+                        {new Date(h.date).toLocaleDateString('en-US', {
+                          month: 'short',
+                          day: 'numeric',
+                          year: 'numeric',
+                        })}
+                      </td>
                     </tr>
-                  </thead>
-                  <tbody>
-                    {payments.map((p: any) => (
-                      <tr key={p.id} className="border-b border-zinc-100">
-                        <td className="px-4 py-3 text-stone-900">{new Date(p.paymentDate).toLocaleString()}</td>
-                        <td className="px-4 py-3 text-stone-900">{p.project?.name || 'General'}</td>
-                        <td className="px-4 py-3 text-emerald-600 font-medium">${Number(p.amount).toFixed(2)}</td>
-                        <td className="px-4 py-3 text-right">
-                          <button 
-                            onClick={() => {
-                              const d = new Date(p.paymentDate);
-                              setPaymentForm({
-                                amount: p.amount.toString(),
-                                date: d.toISOString().split('T')[0],
-                                time: d.toTimeString().slice(0,5),
-                                projectId: p.projectId || ''
-                              });
-                              setEditingPaymentId(p.id);
-                              setIsPaymentModalOpen(true);
-                            }}
-                            className="text-zinc-400 hover:text-indigo-600 transition-colors p-1"
-                            title="Edit Payment"
-                          >
-                            <Edit2 className="w-4 h-4" />
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-
-          {/* Daily Hours Table */}
-          <div className="bg-white p-6 rounded-xl border border-zinc-200 shadow-sm flex flex-col gap-4">
-            <div className="flex justify-between items-center border-b border-zinc-100 pb-3">
-              <h3 className="font-semibold text-stone-900">Daily Hours & Queries</h3>
-              <button 
-                onClick={() => {
-                  setEditingHourId(null);
-                  setHoursForm({ hours: '', date: '', casualties: '', projectId: '', accountId: '' });
-                  setIsHoursModalOpen(true);
-                }}
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 rounded-md text-sm font-medium transition-colors cursor-pointer"
-              >
-                <Plus className="w-4 h-4" /> Log Hours
-              </button>
-            </div>
-            {dailyHours.length === 0 ? (
-              <div className="py-4 text-center text-sm text-zinc-500">No hours logged.</div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm text-left">
-                  <thead className="text-xs text-zinc-500 uppercase bg-zinc-50">
-                    <tr>
-                      <th className="px-4 py-2 font-medium">Date</th>
-                      <th className="px-4 py-2 font-medium">Project</th>
-                      <th className="px-4 py-2 font-medium">Hours</th>
-                      <th className="px-4 py-2 font-medium">Queries / Casualties</th>
-                      <th className="px-4 py-2 font-medium text-right">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {dailyHours.map((h: any) => (
-                      <tr key={h.id} className="border-b border-zinc-100">
-                        <td className="px-4 py-3 text-stone-900">{new Date(h.date).toLocaleDateString()}</td>
-                        <td className="px-4 py-3 text-stone-900">{h.project?.name || 'General'}</td>
-                        <td className="px-4 py-3 text-stone-900 font-medium">{Number(h.hours).toFixed(1)}</td>
-                        <td className="px-4 py-3 text-rose-600 max-w-[200px] truncate" title={h.casualties}>{h.casualties || '-'}</td>
-                        <td className="px-4 py-3 text-right">
-                          <button 
-                            onClick={() => {
-                              const d = new Date(h.date);
-                              setHoursForm({
-                                hours: h.hours.toString(),
-                                date: d.toISOString().split('T')[0],
-                                casualties: h.casualties || '',
-                                projectId: h.projectId || '',
-                                accountId: h.accountId || '',
-                              });
-                              setEditingHourId(h.id);
-                              setIsHoursModalOpen(true);
-                            }}
-                            className="text-zinc-400 hover:text-indigo-600 transition-colors p-1"
-                            title="Edit Hours"
-                          >
-                            <Edit2 className="w-4 h-4" />
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-
+                  );
+                })
+              )}
+            </tbody>
+          </table>
         </div>
       </div>
 
-      {/* Payment Modal */}
-      {isPaymentModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
-          <div className="w-full max-w-md bg-white rounded-xl shadow-xl overflow-hidden">
-            <div className="px-6 py-4 border-b border-zinc-100 flex justify-between items-center">
-              <h3 className="font-semibold text-stone-900">{editingPaymentId ? 'Edit Payment' : 'Add Payment'}</h3>
-              <button onClick={() => { setIsPaymentModalOpen(false); setEditingPaymentId(null); }} className="text-zinc-400 hover:text-stone-900 cursor-pointer">✕</button>
-            </div>
-            <form onSubmit={handleAddPayment} className="p-6 flex flex-col gap-4">
-              <div className="flex flex-col gap-1.5">
-                <label className="text-sm font-medium text-stone-700">Amount ($)</label>
-                <input required type="number" step="0.01" min="0" value={paymentForm.amount} onChange={e => setPaymentForm({...paymentForm, amount: e.target.value})} className="h-10 px-3 border border-zinc-300 rounded-lg outline-none focus:border-indigo-500 text-stone-900" />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-sm font-medium text-stone-700">Date</label>
-                  <input required type="date" value={paymentForm.date} onChange={e => setPaymentForm({...paymentForm, date: e.target.value})} className="h-10 px-3 border border-zinc-300 rounded-lg outline-none focus:border-indigo-500 text-stone-900" />
-                </div>
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-sm font-medium text-stone-700">Time</label>
-                  <input type="time" value={paymentForm.time} onChange={e => setPaymentForm({...paymentForm, time: e.target.value})} className="h-10 px-3 border border-zinc-300 rounded-lg outline-none focus:border-indigo-500 text-stone-900" />
-                </div>
-              </div>
-              <div className="flex flex-col gap-1.5">
-                <label className="text-sm font-medium text-stone-700">Project (Optional)</label>
-                <select value={paymentForm.projectId} onChange={e => setPaymentForm({...paymentForm, projectId: e.target.value})} className="h-10 px-3 border border-zinc-300 rounded-lg outline-none focus:border-indigo-500 bg-white text-stone-900">
-                  <option value="">General / No Project</option>
-                  {allProjects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-                </select>
-              </div>
-              <div className="pt-2">
-                <button type="submit" className="w-full h-10 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-medium cursor-pointer transition-colors">Save Payment</button>
-              </div>
-            </form>
+      {/* Card 4: Accounts */}
+      <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm mb-12">
+        <div className="flex justify-between items-center mb-6">
+          <div className="flex items-center gap-3">
+            <h2 className="text-lg font-bold text-gray-900">Accounts</h2>
+            <span className="bg-gray-100 text-gray-600 text-xs font-semibold px-2 py-0.5 rounded-md">
+              {totalAccounts}
+            </span>
           </div>
+          <button
+            onClick={() => setIsAssignAccountOpen(true)}
+            className="px-5 py-2 text-sm font-medium text-[#4F46E5] border border-[#E0E7FF] rounded-xl hover:bg-indigo-50 transition-colors cursor-pointer"
+          >
+            Assign Account
+          </button>
         </div>
-      )}
 
-      {/* Hours Modal */}
-      {isHoursModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
-          <div className="w-full max-w-md bg-white rounded-xl shadow-xl overflow-hidden">
-            <div className="px-6 py-4 border-b border-zinc-100 flex justify-between items-center">
-              <h3 className="font-semibold text-stone-900">{editingHourId ? 'Edit Logged Hours' : 'Log Hours & Queries'}</h3>
-              <button onClick={() => { setIsHoursModalOpen(false); setEditingHourId(null); }} className="text-zinc-400 hover:text-stone-900 cursor-pointer">✕</button>
-            </div>
-            <form onSubmit={handleAddHours} className="p-6 flex flex-col gap-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-sm font-medium text-stone-700">Hours Worked</label>
-                  <input required type="number" step="0.5" min="0" value={hoursForm.hours} onChange={e => setHoursForm({...hoursForm, hours: e.target.value})} className="h-10 px-3 border border-zinc-300 rounded-lg outline-none focus:border-indigo-500 text-stone-900" />
-                </div>
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-sm font-medium text-stone-700">Date</label>
-                  <input required type="date" value={hoursForm.date} onChange={e => setHoursForm({...hoursForm, date: e.target.value})} className="h-10 px-3 border border-zinc-300 rounded-lg outline-none focus:border-indigo-500 text-stone-900" />
-                </div>
-              </div>
-              <div className="flex flex-col gap-1.5">
-                <label className="text-sm font-medium text-stone-700">Account & Project</label>
-                <select
-                  required
-                  value={
-                    hoursForm.accountId && hoursForm.projectId
-                      ? `${hoursForm.accountId}:${hoursForm.projectId}`
-                      : ''
-                  }
-                  onChange={(e) => {
-                    const [accountId, projectId] = e.target.value.split(':');
-                    setHoursForm({ ...hoursForm, accountId, projectId });
-                  }}
-                  className="h-10 px-3 border border-zinc-300 rounded-lg outline-none focus:border-indigo-500 bg-white text-stone-900"
-                >
-                  <option value="">Select account and project</option>
-                  {workContexts.map((c) => (
-                    <option key={`${c.accountId}:${c.projectId}`} value={`${c.accountId}:${c.projectId}`}>
-                      {c.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="flex flex-col gap-1.5">
-                <label className="text-sm font-medium text-stone-700">Casualties / Queries (Optional)</label>
-                <textarea 
-                  rows={3} 
-                  placeholder="Note any issues, delays, or queries for this day..."
-                  value={hoursForm.casualties} 
-                  onChange={e => setHoursForm({...hoursForm, casualties: e.target.value})} 
-                  className="px-3 py-2 border border-zinc-300 rounded-lg outline-none focus:border-indigo-500 resize-none text-stone-900" 
-                />
-              </div>
-              <div className="pt-2">
-                <button type="submit" className="w-full h-10 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-medium cursor-pointer transition-colors">Log Hours</button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
+        <table className="w-full text-left border-collapse">
+          <thead>
+            <tr className="border-b border-gray-100">
+              <th className="pb-4 text-xs font-medium text-gray-400">Assigned Account</th>
+              <th className="pb-4 text-xs font-medium text-gray-400">Project</th>
+              <th className="pb-4 text-xs font-medium text-gray-400">Total Hours</th>
+              <th className="pb-4 text-xs font-medium text-gray-400 w-10"></th>
+            </tr>
+          </thead>
+          <tbody>
+            {assignedAccountsList.map((item, idx) => (
+              <tr
+                key={idx}
+                className="border-b border-gray-50 last:border-0 group hover:bg-gray-50/50 transition-colors"
+              >
+                <td className="py-4 text-sm text-gray-700 font-medium">{item.accountName}</td>
+                <td className="py-4 text-sm text-gray-700 font-medium">{item.projectName}</td>
+                <td className="py-4 text-sm text-gray-700 font-medium">{formatHoursText(item.hours)}</td>
+                <td className="py-4 text-right relative">
+                  <div onClick={() => handleDeleteAccount(item.accountId)} className="group-hover:flex hidden absolute right-10 top-1/2 -translate-y-1/2 bg-white shadow-[0px_4px_24px_rgba(0,0,0,0.08)] rounded-lg px-4 py-2 text-sm font-medium text-gray-900 cursor-pointer hover:bg-gray-50 z-10">
+                    Remove
+                  </div>
+                  <button className="text-gray-900 hover:text-gray-600 p-1">
+                    <MoreVertical className="w-5 h-5" />
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
+
+    {/* Assign Account Modal */}
+    {isAssignAccountOpen && (
+      <AssignAccountModal
+        taskerId={taskerId}
+        assignedAccountKeys={assignedAccountsList.map((a) => `${a.projectId}-${a.accountId}`)}
+        onClose={() => setIsAssignAccountOpen(false)}
+        onAssigned={() => fetchTasker()}
+      />
+    )}
+
+
+  </>
   );
 }

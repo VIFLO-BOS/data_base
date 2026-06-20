@@ -28,23 +28,18 @@ export function StatCard({ label, value, percentage, comparisonText, trend }: St
       {/* Percentage Badge + Comparison Text */}
       <div className="flex items-center gap-3 flex-wrap mt-1">
         {isUp && (
-          <div className="px-2 py-0.5 bg-[#E8F8EE] rounded-md flex items-center gap-1">
+          <div className="px-2.5 py-1 bg-[#E8F8EE] rounded-full flex items-center gap-1">
             <span className="text-[#28A745] text-xs font-semibold">↑ {percentage}</span>
           </div>
         )}
         {isDown && (
-          <div className="px-2 py-0.5 bg-rose-50 rounded-md flex items-center gap-1">
+          <div className="px-2.5 py-1 bg-rose-50 rounded-full flex items-center gap-1">
             <span className="text-rose-500 text-xs font-semibold">↓ {percentage}</span>
           </div>
         )}
-        {!isUp && !isDown && percentage !== '0%' && (
-          <div className="px-2 py-0.5 bg-zinc-100 rounded-md flex items-center gap-1">
-            <span className="text-zinc-500 text-xs font-semibold">- {percentage}</span>
-          </div>
-        )}
-        {!isUp && !isDown && percentage === '0%' && (
-          <div className="px-2 py-0.5 bg-zinc-50 rounded-md flex items-center gap-1 border border-zinc-100">
-            <span className="text-zinc-400 text-xs font-medium">No change</span>
+        {!isUp && !isDown && (
+          <div className="px-2.5 py-1 bg-zinc-100 rounded-full flex items-center gap-1">
+            <span className="text-zinc-500 text-xs font-medium">{percentage}</span>
           </div>
         )}
         <span className="text-[#A0A0A0] text-xs font-medium">{comparisonText}</span>

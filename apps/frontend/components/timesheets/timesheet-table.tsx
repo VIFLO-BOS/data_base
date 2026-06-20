@@ -8,18 +8,23 @@ interface DayColumn {
 }
 
 interface TimesheetRowData {
+  id?: string;
+  taskerId?: string;
+  projectId?: string;
   tasker: string;
   account: string;
   project: string;
   days: string[];
   totalHours: string;
   totalAmount: string;
+  rawAmount?: number;
 }
 
 interface TimesheetTableProps {
   rows: TimesheetRowData[];
   dayColumns: DayColumn[];
   onViewPaymentDetails?: (row: TimesheetRowData) => void;
+  onMarkAsPaid?: (row: TimesheetRowData) => void;
   onTimeCellClick?: (row: TimesheetRowData, dayIndex: number) => void;
 }
 
@@ -83,29 +88,41 @@ export function TimesheetTable({
 
   return (
     <div className="w-full flex flex-col gap-0">
-
       {/* ═══════════ DESKTOP TABLE (md+) ═══════════ */}
       <div className="hidden md:block w-full">
-        <div className="w-full overflow-x-auto overflow-y-visible scrollbar-thin scrollbar-thumb-zinc-300 scrollbar-track-transparent" style={{ scrollbarGutter: 'stable' }}>
+        <div
+          className="w-full overflow-x-auto overflow-y-visible pb-20 scrollbar-thin scrollbar-thumb-zinc-300 scrollbar-track-transparent"
+          style={{ scrollbarGutter: 'stable' }}
+        >
           <table className="w-full border-collapse min-w-max">
             <thead>
               <tr className="border-b border-zinc-200">
                 {/* Sticky corner: Tasker (both top & left) */}
-                <th className={`${stickyCornerBase} left-0 text-left py-3 pr-4 pl-2 text-zinc-500 text-xs font-semibold uppercase tracking-wider min-w-[140px]`}>
+                <th
+                  className={`${stickyCornerBase} left-0 text-left py-3 pr-4 pl-2 text-zinc-500 text-xs font-semibold uppercase tracking-wider min-w-[140px]`}
+                >
                   Tasker
                 </th>
                 {/* Sticky corner: Account */}
-                <th className={`${stickyCornerBase} left-[140px] text-left py-3 px-4 text-zinc-500 text-xs font-semibold uppercase tracking-wider min-w-[130px]`}>
+                <th
+                  className={`${stickyCornerBase} left-[140px] text-left py-3 px-4 text-zinc-500 text-xs font-semibold uppercase tracking-wider min-w-[130px]`}
+                >
                   Account
                 </th>
                 {/* Sticky corner: Project */}
-                <th className={`${stickyCornerBase} left-[270px] text-left py-3 px-4 text-zinc-500 text-xs font-semibold uppercase tracking-wider min-w-[110px]`} style={{ boxShadow: '2px 0 4px -1px rgba(0,0,0,0.06)' }}>
+                <th
+                  className={`${stickyCornerBase} left-[270px] text-left py-3 px-4 text-zinc-500 text-xs font-semibold uppercase tracking-wider min-w-[110px]`}
+                  style={{ boxShadow: '2px 0 4px -1px rgba(0,0,0,0.06)' }}
+                >
                   Project
                 </th>
 
                 {/* Scrollable day columns */}
                 {dayColumns.map((col, i) => (
-                  <th key={i} className="text-left py-3 px-3 text-zinc-500 text-xs font-semibold uppercase tracking-wider min-w-[90px] whitespace-nowrap">
+                  <th
+                    key={i}
+                    className="text-left py-3 px-3 text-zinc-500 text-xs font-semibold uppercase tracking-wider min-w-[90px] whitespace-nowrap"
+                  >
                     {col.label}
                   </th>
                 ))}
@@ -139,7 +156,10 @@ export function TimesheetTable({
                     <span className="text-stone-700 text-sm">{row.account}</span>
                   </td>
                   {/* Sticky left: Project (with shadow edge) */}
-                  <td className={`${stickyLeftBase} left-[270px] py-3.5 px-4 min-w-[110px]`} style={{ boxShadow: '2px 0 4px -1px rgba(0,0,0,0.06)' }}>
+                  <td
+                    className={`${stickyLeftBase} left-[270px] py-3.5 px-4 min-w-[110px]`}
+                    style={{ boxShadow: '2px 0 4px -1px rgba(0,0,0,0.06)' }}
+                  >
                     <span className="text-stone-700 text-sm">{row.project}</span>
                   </td>
 
@@ -160,7 +180,9 @@ export function TimesheetTable({
 
                   {/* Total Amount */}
                   <td className="py-3.5 px-4 min-w-[110px]">
-                    <span className="text-stone-900 text-sm font-medium whitespace-nowrap">{row.totalAmount}</span>
+                    <span className="text-stone-900 text-sm font-medium whitespace-nowrap">
+                      {row.totalAmount}
+                    </span>
                   </td>
 
                   {/* Action */}
@@ -175,6 +197,15 @@ export function TimesheetTable({
 
                       {openMenuIndex === index && (
                         <div className="absolute right-0 top-10 w-48 bg-white rounded-xl border border-zinc-200 shadow-xl py-2 z-50 flex flex-col">
+                          <button
+                            onClick={() => {
+                              toggleMenu(index);
+                             
+                            }}
+                            className="px-4 py-2 text-left text-sm text-stone-700 hover:bg-zinc-50 transition-colors whitespace-nowrap"
+                          >
+                            Mark as Paid
+                          </button>
                           <button
                             onClick={() => {
                               toggleMenu(index);
@@ -207,7 +238,9 @@ export function TimesheetTable({
             <div className="flex justify-between items-start">
               <div className="flex flex-col gap-0.5">
                 <div className="text-stone-900 text-[15px] font-semibold">{row.tasker}</div>
-                <div className="text-zinc-500 text-xs">{row.project} · {row.account}</div>
+                <div className="text-zinc-500 text-xs">
+                  {row.project} · {row.account}
+                </div>
               </div>
               <div className="relative">
                 <button
@@ -218,6 +251,7 @@ export function TimesheetTable({
                 </button>
                 {openMenuIndex === index && (
                   <div className="absolute right-0 top-10 w-48 bg-white rounded-xl border border-zinc-200 shadow-xl py-2 z-50 flex flex-col">
+                   
                     <button
                       onClick={() => {
                         toggleMenu(index);
@@ -240,7 +274,9 @@ export function TimesheetTable({
                   className="flex flex-col items-center bg-zinc-50 rounded-lg border border-zinc-100 py-2 px-1.5 cursor-pointer hover:bg-indigo-50 hover:border-indigo-200 transition-colors"
                   onClick={() => onTimeCellClick?.(row, dayIndex)}
                 >
-                  <span className="text-[10px] uppercase tracking-wider text-zinc-500 font-semibold mb-1">{col.label}</span>
+                  <span className="text-[10px] uppercase tracking-wider text-zinc-500 font-semibold mb-1">
+                    {col.label}
+                  </span>
                   <TimeCell value={row.days[dayIndex] ?? '--:--'} className="justify-center" />
                 </div>
               ))}
@@ -249,11 +285,15 @@ export function TimesheetTable({
             {/* Summary row */}
             <div className="flex justify-between items-center pt-2 border-t border-zinc-100">
               <div className="flex flex-col">
-                <span className="text-[10px] uppercase tracking-wider text-zinc-400 font-semibold">Total Hours</span>
+                <span className="text-[10px] uppercase tracking-wider text-zinc-400 font-semibold">
+                  Total Hours
+                </span>
                 <TimeCell value={row.totalHours} />
               </div>
               <div className="flex flex-col items-end">
-                <span className="text-[10px] uppercase tracking-wider text-zinc-400 font-semibold">Total Amount</span>
+                <span className="text-[10px] uppercase tracking-wider text-zinc-400 font-semibold">
+                  Total Amount
+                </span>
                 <span className="text-indigo-600 text-base font-semibold">{row.totalAmount}</span>
               </div>
             </div>
@@ -263,4 +303,3 @@ export function TimesheetTable({
     </div>
   );
 }
-

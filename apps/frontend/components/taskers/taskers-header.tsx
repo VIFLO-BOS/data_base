@@ -32,7 +32,7 @@ export function TaskersHeader({ count, onNewClick }: TaskersHeaderProps) {
       >
         <Plus className="w-4 h-4" />
         <span className="text-sm font-semibold leading-5">
-          New Tasker
+          New 
         </span>
       </button>
     </div>

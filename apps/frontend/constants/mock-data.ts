@@ -2,7 +2,7 @@ export const authSlides = [
   {
     title: 'Manage your annotation projects with clarity.',
     description: 'Track taskers, accounts, timesheets, and payments, all in one elegant platform built for teams.',
-    testimonial: 'Annotator has streamlined our entire workflow. We went from spreadsheets to a fully managed dashboard in days.',
+    testimonial: 'Paylio has streamlined our entire workflow. We went from spreadsheets to a fully managed dashboard in days.',
     author: 'Jane Doe',
     role: 'Project Manager, Ventree',
     initials: 'JD',

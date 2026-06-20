@@ -1,9 +1,9 @@
-import React, { useState } from "react";
-import { X } from "lucide-react";
+import React, { useState } from 'react';
+import { X } from 'lucide-react';
 
 interface NewProjectModalProps {
   onClose: () => void;
-  onCreate: (project: { name: string; platformName: string; platformUrl: string; pricePerHour: number }) => void;
+  onCreate: (project: { name: string; platformUrl: string; pricePerHour: number }) => void;
 }
 
 /**
@@ -11,20 +11,21 @@ interface NewProjectModalProps {
  * Supabase-style modal form for creating a new project.
  */
 export function NewProjectModal({ onClose, onCreate }: NewProjectModalProps) {
-  const [name, setName] = useState("");
-  const [platformName, setPlatformName] = useState("");
-  const [platformUrl, setPlatformUrl] = useState("");
-  const [pricePerHour, setPricePerHour] = useState("");
+  const [name, setName] = useState('');
+  const [platformUrl, setPlatformUrl] = useState('');
+  const [pricePerHour, setPricePerHour] = useState('');
 
-  const isFormValid = name.trim() !== "" && platformName.trim() !== "" && platformUrl.trim() !== "" && pricePerHour.trim() !== "";
+  const isFormValid =
+    name.trim() !== '' &&
+    platformUrl.trim() !== '' &&
+    pricePerHour.trim() !== '';
 
   const handleSubmit = () => {
     if (isFormValid) {
-      onCreate({ 
-        name, 
-        platformName, 
-        platformUrl, 
-        pricePerHour: parseFloat(pricePerHour) 
+      onCreate({
+        name,
+        platformUrl,
+        pricePerHour: parseFloat(pricePerHour),
       });
     }
   };
@@ -35,7 +36,7 @@ export function NewProjectModal({ onClose, onCreate }: NewProjectModalProps) {
         {/* Header */}
         <div className="px-6 py-4 border-b border-zinc-200 flex justify-between items-center">
           <h2 className="text-stone-900 text-lg font-semibold">New Project</h2>
-          <button 
+          <button
             onClick={onClose}
             className="p-1.5 rounded-md hover:bg-zinc-100 transition-colors cursor-pointer"
           >
@@ -52,17 +53,6 @@ export function NewProjectModal({ onClose, onCreate }: NewProjectModalProps) {
               placeholder="Enter project name"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="w-full h-10 px-3 rounded-lg border border-zinc-300 bg-white text-sm text-stone-900 placeholder:text-zinc-400 outline-none focus:border-indigo-500 focus:ring-[3px] focus:ring-indigo-500/15 transition-all"
-            />
-          </div>
-
-          <div className="flex flex-col gap-1.5">
-            <label className="text-stone-700 text-sm font-medium">Platform Name</label>
-            <input
-              type="text"
-              placeholder="e.g. Upwork, Fiverr"
-              value={platformName}
-              onChange={(e) => setPlatformName(e.target.value)}
               className="w-full h-10 px-3 rounded-lg border border-zinc-300 bg-white text-sm text-stone-900 placeholder:text-zinc-400 outline-none focus:border-indigo-500 focus:ring-[3px] focus:ring-indigo-500/15 transition-all"
             />
           </div>
@@ -98,9 +88,9 @@ export function NewProjectModal({ onClose, onCreate }: NewProjectModalProps) {
             onClick={handleSubmit}
             disabled={!isFormValid}
             className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer ${
-              isFormValid 
-                ? "bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm" 
-                : "bg-zinc-100 text-zinc-400 cursor-not-allowed"
+              isFormValid
+                ? 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm'
+                : 'bg-zinc-100 text-zinc-400 cursor-not-allowed'
             }`}
           >
             Create Project

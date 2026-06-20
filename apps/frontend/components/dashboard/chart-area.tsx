@@ -10,6 +10,7 @@ interface ChartAreaProps {
     activeAccounts: number;
     activeTaskers: number;
     hoursToday: number;
+    hoursLabel?: string;
     chartData?: {
       labels: string[];
       projects: number[];
@@ -65,7 +66,7 @@ export function ChartArea({ labels, data }: ChartAreaProps) {
               {stats.activeTaskers} Active Taskers
             </div>
             <div className="text-center text-white text-[13px] font-medium leading-5">
-              {stats.hoursToday} Hrs Today
+              {stats.hoursLabel || stats.hoursToday} Hrs Today
             </div>
           </div>
           {/* Arrow pointing down */}

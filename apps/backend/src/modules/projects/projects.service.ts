@@ -103,14 +103,32 @@ export class ProjectsService {
     project.accounts = links.map((l) => l.account).filter(Boolean);
 
     const enriched = (await this.attachAccountsAndHours([project]))[0];
+    const breakdown = await this.hoursService.getBreakdownByAssignment();
+    
     const accountAssignments = await Promise.all(
-      links.map(async (link) => ({
-        account: link.account,
-        taskers: await this.assignmentsService.getAssignmentsForAccountProject(
+      links.map(async (link) => {
+        const rawTaskers = await this.assignmentsService.getAssignmentsForAccountProject(
           link.accountId,
           id,
-        ),
-      })),
+        );
+        let accountHours = 0;
+        const taskers = rawTaskers.map(t => {
+          const taskerHours = breakdown.find(b => b.accountId === link.accountId && b.projectId === id && b.taskerId === t.taskerId)?.hours || 0;
+          accountHours += taskerHours;
+          return {
+            ...t,
+            hours: taskerHours
+          };
+        });
+        
+        return {
+          account: {
+            ...link.account,
+            totalHours: accountHours
+          },
+          taskers,
+        };
+      }),
     );
 
     return {

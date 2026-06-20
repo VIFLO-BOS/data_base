@@ -17,9 +17,18 @@ import {
   Tasker,
 } from '../../../../services/tasker-service';
 import { Loader2 } from 'lucide-react';
+import { showError, showSuccess } from '@/lib/toast';
 import { AddNewTaskerModal } from '@/components/taskers/add-new-tasker-modal';
 import { assignTaskerToProject } from '@/services/project-service';
 import { useRouter } from 'next/navigation';
+
+function formatHoursText(hours: number | string | null | undefined): string {
+  if (!hours) return '0h:00m';
+  const totalMins = Math.round(Number(hours) * 60);
+  const h = Math.floor(totalMins / 60);
+  const m = totalMins % 60;
+  return `${h}h:${String(m).padStart(2, '0')}m`;
+}
 
 /**
  * Admin Taskers Page
@@ -41,7 +50,8 @@ export default function TaskersPage() {
         id: t.id,
         tasker: `${t.firstName} ${t.lastName}`,
         account: accountNames.length > 0 ? accountNames.join(', ') : 'Unassigned',
-        totalHours: t.totalHours || 0,
+        totalHours: formatHoursText(t.totalHours || 0) as unknown as number,
+        totalAmount: (t as any).totalAmount || '₦0.00',
       };
     });
   const archivedTaskers = taskers
@@ -54,7 +64,8 @@ export default function TaskersPage() {
         id: t.id,
         tasker: `${t.firstName} ${t.lastName}`,
         account: accountNames.length > 0 ? accountNames.join(', ') : 'Unassigned',
-        totalHours: t.totalHours || 0,
+        totalHours: formatHoursText(t.totalHours || 0) as unknown as number,
+        totalAmount: (t as any).totalAmount || '₦0.00',
       };
     });
 
@@ -69,7 +80,7 @@ export default function TaskersPage() {
       const list = await getTaskers(1, 100);
       setTaskers(list);
     } catch (error) {
-      console.error('Failed to fetch taskers', error);
+      showError(error, 'Failed to fetch taskers');
     } finally {
       setIsLoading(false);
     }
@@ -116,7 +127,7 @@ export default function TaskersPage() {
       setIsAddModalOpen(false);
       setIsSuccessModalOpen(true);
     } catch (e) {
-      console.error(e);
+      showError(e, 'Failed to add tasker');
     }
   };
 
@@ -153,7 +164,7 @@ export default function TaskersPage() {
       notifyDataMutated();
       setIsEditModalOpen(false);
     } catch (e) {
-      console.error(e);
+      showError(e, 'Failed to edit tasker');
     }
   };
 
@@ -163,7 +174,7 @@ export default function TaskersPage() {
       await fetchTaskers();
       notifyDataMutated();
     } catch (e) {
-      console.error(e);
+      showError(e, 'Failed to archive tasker');
     }
   };
 
@@ -173,7 +184,7 @@ export default function TaskersPage() {
       await fetchTaskers();
       notifyDataMutated();
     } catch (e) {
-      console.error(e);
+      showError(e, 'Failed to unarchive tasker');
     }
   };
 
@@ -185,7 +196,7 @@ export default function TaskersPage() {
       await fetchTaskers();
       notifyDataMutated();
     } catch (e) {
-      console.error('Failed to delete tasker', e);
+      showError(e, 'Failed to delete tasker');
     } finally {
       setIsLoading(false);
     }
