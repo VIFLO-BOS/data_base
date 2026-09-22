@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { User, Mail, Lock, Loader2, ArrowRight, Upload } from 'lucide-react';
+import { User, Mail, Lock, Loader2, ArrowRight } from 'lucide-react';
 import { useAuthStore } from '../../../store/authStore';
 import { supabase } from '@/lib/supabase';
 import { showError } from '@/lib/toast';
@@ -16,19 +16,7 @@ export default function RegisterPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [role, setRole] = useState('client');
-  const [profileImage, setProfileImage] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setProfileImage(reader.result as string);
-      };
-      reader.readAsDataURL(file);
-    }
-  };
 
   const handleSubmit = async (e: React.SubmitEvent) => {
     e.preventDefault();
@@ -41,7 +29,7 @@ export default function RegisterPage() {
     const lastName = nameParts.slice(1).join(' ') || firstName;
 
     setIsSubmitting(true);
-    const { success } = await signUp(email, password, firstName, lastName, role, profileImage);
+    const { success } = await signUp(email, password, firstName, lastName, role);
     setIsSubmitting(false);
 
     if (success) {
@@ -94,30 +82,6 @@ export default function RegisterPage() {
         )}
 
         <div className="flex flex-col gap-1.5">
-          <label className="text-zinc-300 text-sm font-medium">Profile Image (Optional)</label>
-          <div className="relative group flex items-center justify-center w-full h-24 border-2 border-dashed border-white/20 rounded-xl hover:border-indigo-500/50 transition-colors bg-white/5 cursor-pointer overflow-hidden">
-            <input
-              type="file"
-              accept="image/*"
-              onChange={handleImageUpload}
-              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
-            />
-            {profileImage ? (
-              <img
-                src={profileImage}
-                alt="Profile preview"
-                className="w-full h-full object-cover"
-              />
-            ) : (
-              <div className="flex flex-col items-center gap-1 text-zinc-500 group-hover:text-indigo-400 transition-colors">
-                <Upload className="w-5 h-5" />
-                <span className="text-xs">Click to upload</span>
-              </div>
-            )}
-          </div>
-        </div>
-
-        <div className="flex flex-col gap-1.5">
           <label className="text-zinc-300 text-sm font-medium">Full Name</label>
           <div className="relative group">
             <User className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500 group-focus-within:text-indigo-400 transition-colors pointer-events-none" />
@@ -153,12 +117,15 @@ export default function RegisterPage() {
             <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500 group-focus-within:text-indigo-400 transition-colors pointer-events-none" />
             <input
               type="password"
-              placeholder="Create a password (min 6 chars)"
+              placeholder="8–16 characters, uppercase and number"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               className="w-full h-11 pl-10 pr-4 bg-white text-sm text-zinc-900 rounded-xl border border-white/20 placeholder:text-zinc-500 focus:bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
               required
-              minLength={6}
+              minLength={8}
+              maxLength={16}
+              pattern="(?=.*[A-Z])(?=.*[0-9]).{8,16}"
+              title="Use 8–16 characters with at least one uppercase letter and one number"
             />
           </div>
         </div>

@@ -45,7 +45,11 @@ export class JwtAuthGuard implements CanActivate {
     let payload: { sub: string };
     try {
       const secret = this.config.get<string>('jwt.secret')!;
-      payload = jwt.verify(token, secret) as { sub: string };
+      const verified = jwt.verify(token, secret, { algorithms: ['HS256'] });
+      if (typeof verified === 'string' || verified.type !== 'access' || typeof verified.sub !== 'string' || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(verified.sub)) {
+        throw new UnauthorizedException('Invalid token purpose or subject');
+      }
+      payload = verified as { sub: string };
     } catch {
       throw new UnauthorizedException('Invalid or expired token');
     }

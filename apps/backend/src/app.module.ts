@@ -1,3 +1,6 @@
+import { validateEnvironment } from './config/environment';
+import { databaseOptions } from './config/database.config';
+import { AuthRateLimitGuard } from './common/guards/auth-rate-limit.guard';
 /**
  * Root Application Module
  * Imports all feature modules and configures global providers.
@@ -46,41 +49,20 @@ import { HttpExceptionFilter } from './common/filters/http-exception.filter';
     // Load .env and config files globally
     ConfigModule.forRoot({
       isGlobal: true,
+      validate: validateEnvironment,
       load: [appConfig, databaseConfig, jwtConfig, supabaseConfig],
     }),
 
     //Connect to Supabase PostgreSQL via TypeORM
     TypeOrmModule.forRootAsync({
       inject: [ConfigService],
-      useFactory: (config: ConfigService) => ({
+      useFactory: () => ({
         type: 'postgres',
-        url: config.get<string>('database.url'),
+        ...databaseOptions(),
         autoLoadEntities: true,
-        synchronize: config.get<string>('app.env') !== 'production',
-        ssl:
-          config.get<string>('app.env') === 'production'
-            ? { rejectUnauthorized: false }
-            : false,
-
-        // ── Connection resilience ──────────────────────────────────────
-        // Retry connecting on startup (e.g. if DB isn't ready yet)
-        retryAttempts: 10,
-        retryDelay: 3000, // 3 seconds between retries
-
-        // Keep the connection alive across idle periods
-        keepConnectionAlive: true,
-
-        // Connection pool settings (pg driver)
-        extra: {
-          // Maximum connections in the pool
-          max: 20,
-          // Return an error after 30s if no connection available
-          connectionTimeoutMillis: 30000,
-          // Close idle connections after 10 seconds
-          idleTimeoutMillis: 10000,
-          // Verify connection is alive before lending from pool
-          allowExitOnIdle: false,
-        },
+        synchronize: false,
+        retryAttempts: 2,
+        retryDelay: 500,
       }),
     }),
 
@@ -107,6 +89,7 @@ import { HttpExceptionFilter } from './common/filters/http-exception.filter';
   ],
   providers: [
     // Global guards: JWT -> Roles -> Permissions (applied to every route)
+    { provide: APP_GUARD, useClass: AuthRateLimitGuard },
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     { provide: APP_GUARD, useClass: RolesGuard },
     { provide: APP_GUARD, useClass: PermissionsGuard },

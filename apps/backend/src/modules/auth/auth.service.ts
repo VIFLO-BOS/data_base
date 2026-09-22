@@ -1,16 +1,10 @@
-/**
- * Auth Service
- * TODO: Implement business logic for auth.
- */
-import {
-  Injectable,
-  UnauthorizedException,
-  ConflictException,
-} from '@nestjs/common';
+import { Injectable, UnauthorizedException, ConflictException, BadRequestException, ServiceUnavailableException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { EntityManager, Repository } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
 import * as jwt from 'jsonwebtoken';
+import { createHash, randomUUID } from 'crypto';
+import { createClient } from '@supabase/supabase-js';
 import { UserEntity } from '../users/entities/user.entity';
 import { RoleEntity } from '../roles/entities/role.entity';
 import { SessionEntity } from './entities/session.entity';
@@ -18,226 +12,156 @@ import { ProfileEntity } from '../profiles/entities/profile.entity';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { OAuthLoginDto } from './dto/oauth-login.dto';
-import {
-  hashPassword,
-  comparePassword,
-} from '../../common/utils/password.utils';
+import { hashPassword, comparePassword } from '../../common/utils/password.utils';
 
 @Injectable()
 export class AuthService {
   constructor(
     @InjectRepository(UserEntity) private userRepo: Repository<UserEntity>,
     @InjectRepository(RoleEntity) private roleRepo: Repository<RoleEntity>,
-    @InjectRepository(SessionEntity)
-    private sessionRepo: Repository<SessionEntity>,
-    @InjectRepository(ProfileEntity)
-    private profileRepo: Repository<ProfileEntity>,
+    @InjectRepository(SessionEntity) private sessionRepo: Repository<SessionEntity>,
+    @InjectRepository(ProfileEntity) private profileRepo: Repository<ProfileEntity>,
     private config: ConfigService,
   ) {}
 
-  /*
-   * Register a new admin user
-   */
-
   async register(dto: RegisterDto) {
-    // 1. Check if email already exists
-    const existing = await this.userRepo.findOne({
-      where: { email: dto.email },
-    });
-    if (existing) throw new ConflictException('Email already registered');
-
-    // 2. Hash the password
+    this.assertPublicRole(dto.role);
+    const email = dto.email.trim().toLowerCase();
     const passwordHash = await hashPassword(dto.password);
-
-    // 3. Find user
-    const userByEmail = await this.userRepo.findOne({
-      where: { email: dto.email },
+    return this.userRepo.manager.transaction(async manager => {
+      if (await manager.findOneBy(UserEntity, { email })) throw new ConflictException('Email already registered');
+      const role = await this.requireRole(manager, dto.role);
+      const user = await manager.save(UserEntity, manager.create(UserEntity, { email, passwordHash, roles: [role] }));
+      user.profile = await manager.save(ProfileEntity, manager.create(ProfileEntity, {
+        userId: user.id, firstName: dto.firstName, lastName: dto.lastName,
+      }));
+      return { user: this.sanitizeUser(user), ...await this.generateTokens(user, manager) };
     });
-    if (userByEmail) throw new ConflictException('Email already registered');
-
-    // 4. Create user
-    const user = this.userRepo.create({
-      email: dto.email,
-      passwordHash,
-    });
-    await this.userRepo.save(user);
-
-    // 4.5 Create profile
-    const profile = this.profileRepo.create({
-      userId: user.id,
-      firstName: dto.firstName,
-      lastName: dto.lastName,
-      avatarUrl: dto.profileImage,
-    });
-    await this.profileRepo.save(profile);
-    user.profile = profile;
-
-    // 5. Assign role
-    const userRole = await this.roleRepo.findOne({ where: { name: dto.role } });
-
-    if (userRole) {
-      user.roles = [userRole];
-      await this.userRepo.save(user);
-    }
-
-    // 6. Generate Tokens
-    const tokens = this.generateTokens(user);
-    
-    return {
-      user: this.sanitizeUser(user),
-      ...tokens,
-    };
   }
 
-  /**
-   * Login with email and password
-   */
   async login(dto: LoginDto) {
-    // 1. Find user by email
-    const user = await this.userRepo.findOne({ where: { email: dto.email } });
-    if (!user) throw new UnauthorizedException('Invalid email or password');
-
-    // 2. Verify password
-    const valid = await comparePassword(dto.password, user.passwordHash);
-    if (!valid) throw new UnauthorizedException('Invalid email or password');
-
-    // 3. Check user is active
-    if (user.status !== 'active') {
-      throw new UnauthorizedException('Account is suspended');
+    const user = await this.userRepo.findOne({
+      where: { email: dto.email.trim().toLowerCase() },
+      select: { id: true, email: true, passwordHash: true, status: true, createdAt: true, updatedAt: true },
+    });
+    if (!user?.passwordHash || !await comparePassword(dto.password, user.passwordHash)) {
+      throw new UnauthorizedException('Invalid email or password');
     }
-
-    // 4. Generate tokens
-    const tokens = this.generateTokens(user);
-
-    return {
-      user: this.sanitizeUser(user),
-      ...tokens,
-    };
+    this.assertActive(user);
+    return { user: this.sanitizeUser(user), ...await this.generateTokens(user, this.userRepo.manager) };
   }
 
-  /**
-   * OAuth Login or Registration bridge
-   */
   async oauthLogin(dto: OAuthLoginDto) {
-    let user = await this.userRepo.findOne({ where: { email: dto.email } });
-
-    if (!user) {
-      // Register the new user
-      user = this.userRepo.create({
-        email: dto.email,
-        // Since they logged in with OAuth, they don't have a password. 
-        // We set passwordHash to null or a random string.
-        passwordHash: null,
-      });
-      await this.userRepo.save(user);
-
-      // Create profile
-      const profile = this.profileRepo.create({
-        userId: user.id,
-        firstName: dto.firstName,
-        lastName: dto.lastName,
-        avatarUrl: dto.profileImage,
-      });
-      await this.profileRepo.save(profile);
-      user.profile = profile;
-
-      // Assign role
-      const userRole = await this.roleRepo.findOne({ where: { name: dto.role } });
-      if (userRole) {
-        user.roles = [userRole];
-        await this.userRepo.save(user);
-      }
-    } else {
-      // User exists, but might have been created via OAuth without a profile?
-      // For safety, let's just make sure they aren't suspended.
-      if (user.status !== 'active') {
-        throw new UnauthorizedException('Account is suspended');
-      }
+    this.assertPublicRole(dto.role);
+    const url = this.config.get<string>('SUPABASE_URL');
+    const key = this.config.get<string>('SUPABASE_ANON_KEY');
+    if (!url || !key) throw new ServiceUnavailableException('OAuth is not configured');
+    if (!dto.accessToken) throw new UnauthorizedException('Provider token required');
+    const provider = createClient(url, key, {
+      auth: { persistSession: false, autoRefreshToken: false },
+      global: { fetch: (input, init) => fetch(input, { ...init, signal: AbortSignal.timeout(5000) }) },
+    });
+    const { data, error } = await provider.auth.getUser(dto.accessToken);
+    if (error || !data.user?.id || !data.user.email || !data.user.email_confirmed_at) {
+      throw new UnauthorizedException('Invalid or unverified provider identity');
     }
-
-    const tokens = this.generateTokens(user);
-
-    return {
-      user: this.sanitizeUser(user),
-      ...tokens,
-    };
+    const identity = data.user;
+    const email = identity.email!.toLowerCase();
+    return this.userRepo.manager.transaction(async manager => {
+      await manager.query('SELECT pg_advisory_xact_lock(hashtext($1))', [identity.id]);
+      let user = await manager.findOne(UserEntity, { where: { supabaseUserId: identity.id } });
+      if (!user) {
+        // Existing password accounts need a separate authenticated linking flow.
+        if (await manager.findOneBy(UserEntity, { email })) {
+          throw new ConflictException('An account with this email exists. Sign in with your password.');
+        }
+        const role = await this.requireRole(manager, dto.role);
+        user = await manager.save(UserEntity, manager.create(UserEntity, {
+          email,
+          supabaseUserId: identity.id,
+          emailVerifiedAt: new Date(identity.email_confirmed_at),
+          roles: [role],
+        }));
+        const name = String(identity.user_metadata?.full_name || identity.user_metadata?.user_name || email.split('@')[0]).slice(0, 255).trim().split(/\s+/);
+        user.profile = await manager.save(ProfileEntity, manager.create(ProfileEntity, {
+          userId: user.id, firstName: name[0] || 'User', lastName: name.slice(1).join(' ') || name[0] || 'User',
+        }));
+      }
+      this.assertActive(user);
+      return { user: this.sanitizeUser(user), ...await this.generateTokens(user, manager) };
+    });
   }
-
-  /**
-   * Refresh access token using refresh token
-   */
 
   async refresh(refreshToken: string) {
+    const payload = this.verifyRefresh(refreshToken);
+    return this.sessionRepo.manager.transaction(async manager => {
+      const session = await manager.findOne(SessionEntity, {
+        where: { id: payload.jti, userId: payload.sub, tokenHash: this.digest(refreshToken) },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!session || session.expiresAt.getTime() <= Date.now()) throw new UnauthorizedException('Invalid refresh session');
+      const user = await manager.findOne(UserEntity, { where: { id: payload.sub } });
+      this.assertActive(user);
+      await manager.delete(SessionEntity, session.id);
+      return this.generateTokens(user, manager);
+    });
+  }
+
+  async logout(refreshToken: string) {
+    await this.sessionRepo.delete({ tokenHash: this.digest(refreshToken) });
+    return { message: 'Session revoked' };
+  }
+
+  async getMe(userId: string) {
+    const user = await this.userRepo.findOne({ where: { id: userId } });
+    this.assertActive(user);
+    return this.sanitizeUser(user);
+  }
+
+  private verifyRefresh(token: string): jwt.JwtPayload & { sub: string; jti: string } {
     try {
-      const secret = this.config.get<string>('jwt.secret');
-      const payload =jwt.verify(refreshToken,secret) as any;
-
-      if (payload.type !== 'refresh' || !payload.sub) throw new UnauthorizedException('Invalid refresh token');
-
-      const session = await this.sessionRepo.findOne({
-        where: {
-          tokenHash: await hashPassword(refreshToken),
-          userId: payload.sub,
-        }
-      })
-
-      if (!session) throw new UnauthorizedException('Invalid refresh token');
-
-      if (new Date(session.expiresAt) < new Date()) {
-        await this.sessionRepo.delete({ id: session.id });
-        throw new UnauthorizedException('Refresh token expired');
-      }
-
-      const user = await this.userRepo.findOne({ where: { id: payload.sub } });
-      if (!user) throw new UnauthorizedException('User not found');
-
-      return this.generateTokens(user);
-    } catch (error) {
-      if (error instanceof UnauthorizedException) {
-        throw error;
-      }
+      const payload = jwt.verify(token, this.config.getOrThrow<string>('jwt.secret'), { algorithms: ['HS256'] });
+      if (typeof payload === 'string' || payload.type !== 'refresh' || typeof payload.sub !== 'string' || typeof payload.jti !== 'string' ||
+          !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(payload.sub) || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(payload.jti)) throw new Error('Invalid purpose or subject');
+      return payload as jwt.JwtPayload & { sub: string; jti: string };
+    } catch {
       throw new UnauthorizedException('Invalid refresh token');
     }
   }
 
-  /**
-   * Get current user profile
-   */
-
-  async getMe(userId: string) {
-    const user = await this.userRepo.findOne({where:{id:userId}});
-    if(!user) throw new UnauthorizedException()
-    
-    return this.sanitizeUser(user)
-  }
-
-
-    // ---Private Helpers---
-
-  private generateTokens(user: UserEntity) {
-    const secret = this.config.get<string>('jwt.secret');
-    const roleNames = user?.roles?.map(r => r.name) || [];
-
-
-   const accessToken = jwt.sign(
-      { sub: user.id, email: user.email, roles: roleNames, type: 'access' },
-      secret,
-      { expiresIn: this.config.get<string>('jwt.accessExpiration') as any },
-    );
-
-    const refreshToken = jwt.sign({ sub: user.id, type: 'refresh' }, secret, {
-      expiresIn: this.config.get<string>('jwt.refreshExpiration') as any,
+  private async generateTokens(user: UserEntity, manager: EntityManager) {
+    const secret = this.config.getOrThrow<string>('jwt.secret');
+    const id = randomUUID();
+    const accessToken = jwt.sign({ sub: user.id, type: 'access' }, secret, {
+      algorithm: 'HS256', expiresIn: this.config.getOrThrow('jwt.accessExpiration') as jwt.SignOptions['expiresIn'],
     });
-
+    const refreshToken = jwt.sign({ sub: user.id, type: 'refresh' }, secret, {
+      algorithm: 'HS256', jwtid: id, expiresIn: this.config.getOrThrow('jwt.refreshExpiration') as jwt.SignOptions['expiresIn'],
+    });
+    const { exp } = jwt.decode(refreshToken) as jwt.JwtPayload;
+    await manager.save(SessionEntity, manager.create(SessionEntity, {
+      id, userId: user.id, tokenHash: this.digest(refreshToken), expiresAt: new Date(exp! * 1000),
+    }));
     return { accessToken, refreshToken };
   }
 
-  private sanitizeUser(user:UserEntity) {
-    const {passwordHash, ...safe} = user;
+  private digest(token: string) { return createHash('sha256').update(token).digest('hex'); }
+  private assertPublicRole(role: string) {
+    if (!['client', 'tasker'].includes(role)) throw new BadRequestException('Role must be client or tasker');
+  }
+  private assertActive(user: UserEntity) {
+    if (!user || user.status !== 'active') throw new UnauthorizedException('User not found or inactive');
+  }
+  private async requireRole(manager: EntityManager, name: string) {
+    const role = await manager.findOneBy(RoleEntity, { name });
+    if (!role) throw new ServiceUnavailableException('Account roles have not been provisioned');
+    return role;
+  }
+  private sanitizeUser(user: UserEntity) {
     return {
-      ...safe,
-      roles: user?.roles?.map((r: RoleEntity) => r.name) || [],
+      id: user.id, email: user.email, status: user.status,
+      firstName: user.profile?.firstName, lastName: user.profile?.lastName, profileImage: user.profile?.avatarUrl,
+      profile: user.profile, roles: user.roles?.map(r => r.name) || [], createdAt: user.createdAt, updatedAt: user.updatedAt,
     };
   }
-
 }

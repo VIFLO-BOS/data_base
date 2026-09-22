@@ -12,8 +12,8 @@ import { useAuthStore } from "../../store/authStore";
 export function LogoutButton() {
     const router = useRouter();
 
-    const handleLogout = () => {
-        useAuthStore.getState().signOut();
+    const handleLogout = async () => {
+        await useAuthStore.getState().signOut();
         router.push("/login");
     };
 

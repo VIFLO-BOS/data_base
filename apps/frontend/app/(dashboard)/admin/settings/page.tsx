@@ -1,11 +1,59 @@
 "use client";
 
-import React from "react";
-import { Settings, Save } from "lucide-react";
+import React, { useState, useEffect } from "react";
+import { Settings, Save, Mail, UserPlus, X, Loader2, Users } from "lucide-react";
+import { toast } from "react-hot-toast";
+import { apiClient } from "../../../../services/api-client";
+import { useAuthStore } from "../../../../store/authStore";
 
 export default function SettingsPage() {
+  const { user } = useAuthStore();
+  
+  // Invite state
+  const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [inviteRole, setInviteRole] = useState("admin");
+  const [isInviting, setIsInviting] = useState(false);
+  
+  // Pending Invites state
+  const [pendingInvites, setPendingInvites] = useState<any[]>([]);
+
+  useEffect(() => {
+    fetchPendingInvites();
+  }, []);
+
+  const fetchPendingInvites = async () => {
+    try {
+      const { data } = await apiClient.get('/admins/invitations/pending');
+      if (data && data.data) {
+        setPendingInvites(data.data);
+      }
+    } catch (err) {
+      console.error("Failed to fetch pending invitations", err);
+    }
+  };
+
+  const handleInviteSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!inviteEmail) return;
+
+    setIsInviting(true);
+    try {
+      await apiClient.post('/admins/invite', { email: inviteEmail, role: inviteRole });
+      toast.success('Invitation sent successfully!');
+      setIsInviteModalOpen(false);
+      setInviteEmail('');
+      setInviteRole('admin');
+      fetchPendingInvites(); // Refresh list
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || 'Failed to send invitation');
+    } finally {
+      setIsInviting(false);
+    }
+  };
+
   return (
-    <div className="flex-1 flex flex-col justify-start items-start gap-4 lg:gap-6 w-full">
+    <div className="flex-1 flex flex-col justify-start items-start gap-4 lg:gap-6 w-full relative">
       <div className="self-stretch flex flex-col justify-start items-start gap-2.5">
         <div className="self-stretch p-4 lg:p-6 bg-white rounded-xl shadow-md border-0 flex flex-col justify-start items-start gap-6">
           {/* Header */}
@@ -29,6 +77,52 @@ export default function SettingsPage() {
           </div>
 
           <div className="w-full max-w-3xl grid gap-8">
+            {/* Admin Management Section */}
+            {(user?.roles?.includes('super_admin') || user?.roles?.includes('admin')) && (
+              <div className="grid gap-4">
+                <div className="flex items-center justify-between border-b border-stone-100 pb-2">
+                  <h3 className="text-stone-900 font-semibold flex items-center gap-2">
+                    <Users className="w-4 h-4 text-indigo-600" />
+                    Admin Management
+                  </h3>
+                  <button 
+                    onClick={() => setIsInviteModalOpen(true)}
+                    className="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 text-sm font-medium rounded-lg transition-colors flex items-center gap-1.5"
+                  >
+                    <UserPlus className="w-4 h-4" />
+                    Invite Admin
+                  </button>
+                </div>
+                
+                {/* Pending Invitations List */}
+                {pendingInvites.length > 0 ? (
+                  <div className="flex flex-col gap-2">
+                    <p className="text-xs font-medium text-stone-500 uppercase tracking-wider mb-1">Pending Invitations</p>
+                    {pendingInvites.map((invite) => (
+                      <div key={invite.id} className="flex items-center justify-between p-3 bg-stone-50 border border-stone-100 rounded-lg">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-full bg-orange-100 flex items-center justify-center">
+                            <Mail className="w-4 h-4 text-orange-600" />
+                          </div>
+                          <div>
+                            <p className="text-sm font-medium text-stone-900">{invite.email}</p>
+                            <p className="text-xs text-stone-500 capitalize">{invite.role.replace('_', ' ')}</p>
+                          </div>
+                        </div>
+                        <div className="text-xs text-stone-400">
+                          Expires: {new Date(invite.expiresAt).toLocaleDateString()}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="p-4 bg-stone-50 border border-stone-100 rounded-lg text-sm text-stone-500 flex items-center justify-center italic">
+                    No pending invitations.
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* General Settings */}
             <div className="grid gap-4">
               <h3 className="text-stone-900 font-semibold border-b border-stone-100 pb-2">General Configuration</h3>
@@ -82,6 +176,61 @@ export default function SettingsPage() {
           </div>
         </div>
       </div>
+
+      {/* Invite Admin Modal */}
+      {isInviteModalOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl w-full max-w-md shadow-xl overflow-hidden">
+            <div className="flex justify-between items-center p-6 border-b border-stone-100">
+              <h2 className="text-xl font-semibold text-stone-900">Invite Admin</h2>
+              <button onClick={() => setIsInviteModalOpen(false)} className="text-stone-400 hover:text-stone-600 transition-colors">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <form onSubmit={handleInviteSubmit} className="p-6 flex flex-col gap-4">
+              <div>
+                <label className="block text-sm font-medium text-stone-700 mb-1">Email Address</label>
+                <input
+                  type="email"
+                  required
+                  value={inviteEmail}
+                  onChange={(e) => setInviteEmail(e.target.value)}
+                  className="w-full h-10 px-3 bg-white border border-stone-200 rounded-lg text-sm text-stone-900 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                  placeholder="admin@paylio.com"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-stone-700 mb-1">Role</label>
+                <select
+                  value={inviteRole}
+                  onChange={(e) => setInviteRole(e.target.value)}
+                  className="w-full h-10 px-3 bg-white border border-stone-200 rounded-lg text-sm text-stone-900 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                >
+                  <option value="admin">Admin</option>
+                  <option value="super_admin">Super Admin</option>
+                </select>
+              </div>
+              <div className="mt-4 flex gap-3 justify-end">
+                <button
+                  type="button"
+                  onClick={() => setIsInviteModalOpen(false)}
+                  className="px-4 py-2 text-sm font-medium text-stone-600 hover:text-stone-900 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isInviting || !inviteEmail}
+                  className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 disabled:bg-indigo-400 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+                >
+                  {isInviting && <Loader2 className="w-4 h-4 animate-spin" />}
+                  Send Invitation
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

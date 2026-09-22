@@ -2,7 +2,7 @@
  * LoginDto
  * TODO: Define validation rules and fields.
  */
-import { IsString, IsOptional, MinLength, IsEmail, MaxLength, Matches } from 'class-validator';
+import { IsString, MinLength, IsEmail, MaxLength, Matches } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class LoginDto {

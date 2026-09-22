@@ -1,3 +1,4 @@
+import { AuthRateLimitEntity } from './entities/auth-rate-limit.entity';
 /**
  * Auth Module
  */
@@ -11,7 +12,7 @@ import { SessionEntity } from './entities/session.entity';
 import { ProfileEntity } from '../profiles/entities/profile.entity';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([UserEntity, RoleEntity, SessionEntity, ProfileEntity])],
+  imports: [TypeOrmModule.forFeature([UserEntity, RoleEntity, SessionEntity, ProfileEntity, AuthRateLimitEntity])],
   controllers: [AuthController],
   providers: [AuthService],
   exports: [AuthService],

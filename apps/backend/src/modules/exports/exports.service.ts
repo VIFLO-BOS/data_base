@@ -3,7 +3,7 @@
  * TODO: Implement business logic for exports.
  */
 
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ExportJobEntity } from './entities/export-job.entity';
@@ -44,22 +44,8 @@ export class ExportsService {
     return job;
   }
 
-  async requestExport(dto: ExportRequestDto, userId: string) {
-    const job = this.exportsRepo.create({
-      type: dto.type,
-      resource: dto.resource,
-      filters: dto.filters,
-      requestedBy: userId,
-      status: 'queued',
-    });
-    const saved = await this.exportsRepo.save(job);
-
-    // TODO: In a real app, dispatch a background job here (e.g., Bull queue)
-    // For now, simulate immediate completion:
-    saved.status = 'completed';
-    saved.completedAt = new Date();
-    saved.fileUrl = `/exports/${saved.id}.${dto.type}`;
-    return this.exportsRepo.save(saved);
+  async requestExport(_dto: ExportRequestDto, _userId: string) {
+    throw new ServiceUnavailableException('Export generation is currently unavailable');
   }
 
   async delete(id: string) {

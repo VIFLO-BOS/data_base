@@ -22,11 +22,14 @@ export class UserEntity {
   @Column({ unique: true })
   email: string;
 
-  @Column({ name: 'password_hash', nullable: true })
+  @Column({ name: 'password_hash', nullable: true, select: false })
   passwordHash: string;
 
+  @Column({ name: 'supabase_user_id', type: 'uuid', nullable: true, unique: true, select: false })
+  supabaseUserId: string;
+
   @Column({ name: 'email_verified_at', type: 'timestamptz', nullable: true })
-  emailVerifieldAt: string;
+  emailVerifiedAt: Date;
 
   @Column({ default: 'active' })
   status: string;

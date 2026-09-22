@@ -1,3 +1,5 @@
+import { AcceptInvitationDto } from './dto/accept-invitation.dto';
+import { PendingInvitationDto } from './dto/pending-invitation.dto';
 import { Injectable, NotFoundException, BadRequestException, ConflictException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -24,6 +26,8 @@ export class AdminsService {
   ) {}
 
   async inviteAdmin(email: string, role: string, inviterId: string) {
+    if (role !== 'admin') throw new BadRequestException('Only admin invitations are supported');
+    email = email.trim().toLowerCase();
     // 1. Check if user already exists
     const existingUser = await this.userRepo.findOne({ where: { email } });
     if (existingUser) {
@@ -84,49 +88,37 @@ export class AdminsService {
     return { email: invitation.email, role: invitation.role };
   }
 
-  async acceptInvitation(token: string, payload: any) {
-    const invitation = await this.invitationsRepo.findOne({ where: { token } });
-    
-    if (!invitation || invitation.accepted || new Date() > new Date(invitation.expiresAt)) {
-      throw new BadRequestException('Invalid or expired invitation token');
-    }
-
-    // 1. Check if email already registered somehow
-    const existing = await this.userRepo.findOne({ where: { email: invitation.email } });
-    if (existing) {
-      throw new ConflictException('User already registered');
-    }
-
-    // 2. Hash the password
+  async acceptInvitation(token: string, payload: AcceptInvitationDto) {
     const passwordHash = await hashPassword(payload.password);
-
-    // 3. Create user
-    const user = this.userRepo.create({
-      email: invitation.email,
-      passwordHash,
+    return this.invitationsRepo.manager.transaction(async manager => {
+      const invitation = await manager.findOne(AdminInvitationEntity, {
+        where: { token }, loadEagerRelations: false, lock: { mode: 'pessimistic_write' },
+      });
+      if (!invitation || invitation.accepted || invitation.expiresAt.getTime() <= Date.now()) {
+        throw new BadRequestException('Invalid or expired invitation token');
+      }
+      if (!['admin'].includes(invitation.role)) throw new BadRequestException('Invalid invitation role');
+      if (await manager.findOneBy(UserEntity, { email: invitation.email })) throw new ConflictException('User already registered');
+      const role = await manager.findOneBy(RoleEntity, { name: invitation.role });
+      if (!role) throw new BadRequestException('Invitation role has not been provisioned');
+      const user = await manager.save(UserEntity, manager.create(UserEntity, { email: invitation.email, passwordHash, roles: [role] }));
+      await manager.save(ProfileEntity, manager.create(ProfileEntity, { userId: user.id, firstName: payload.firstName, lastName: payload.lastName }));
+      invitation.accepted = true;
+      await manager.save(AdminInvitationEntity, invitation);
+      return { message: 'Admin account created successfully' };
     });
-    await this.userRepo.save(user);
+  }
 
-    // 4. Create profile
-    const profile = this.profileRepo.create({
-      userId: user.id,
-      firstName: payload.firstName,
-      lastName: payload.lastName,
+  async getPendingInvitations(): Promise<PendingInvitationDto[]> {
+    const invitations = await this.invitationsRepo.find({
+      where: { accepted: false },
+      order: { createdAt: 'DESC' },
+      relations: ['invitedBy'],
     });
-    await this.profileRepo.save(profile);
-    user.profile = profile;
+    return invitations.map(invitation => ({
+      id: invitation.id, email: invitation.email, role: invitation.role, expiresAt: invitation.expiresAt, createdAt: invitation.createdAt,
+      invitedBy: invitation.invitedBy ? { id: invitation.invitedBy.id, email: invitation.invitedBy.email } : null,
+    }));
 
-    // 5. Assign role
-    const userRole = await this.roleRepo.findOne({ where: { name: invitation.role } });
-    if (userRole) {
-      user.roles = [userRole];
-      await this.userRepo.save(user);
-    }
-
-    // 6. Mark invitation as accepted
-    invitation.accepted = true;
-    await this.invitationsRepo.save(invitation);
-
-    return { message: 'Admin account created successfully' };
   }
 }

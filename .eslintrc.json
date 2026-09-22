@@ -1,12 +1,51 @@
 {
   "root": true,
-  "extends": ["eslint:recommended", "plugin:@typescript-eslint/recommended"],
+  "extends": [
+    "eslint:recommended",
+    "plugin:@typescript-eslint/recommended"
+  ],
   "parser": "@typescript-eslint/parser",
-  "plugins": ["@typescript-eslint"],
+  "plugins": [
+    "@typescript-eslint"
+  ],
   "rules": {
-    "@typescript-eslint/no-unused-vars": ["error", { "argsIgnorePattern": "^_" }],
+    "@typescript-eslint/no-unused-vars": [
+      "error",
+      {
+        "argsIgnorePattern": "^_",
+        "varsIgnorePattern": "^_",
+        "caughtErrorsIgnorePattern": "^_",
+        "ignoreRestSiblings": true
+      }
+    ],
     "@typescript-eslint/explicit-function-return-type": "off",
     "@typescript-eslint/no-explicit-any": "warn"
   },
-  "ignorePatterns": ["dist", "build", ".next", "node_modules"]
+  "ignorePatterns": [
+    "**/dist/**",
+    "**/build/**",
+    "**/.next/**",
+    "**/node_modules/**",
+    "**/.vercel/**",
+    "**/.turbo/**",
+    "**/next-env.d.ts"
+  ],
+  "env": {
+    "browser": true,
+    "node": true,
+    "es2022": true,
+    "jest": true
+  },
+  "overrides": [
+    {
+      "files": [
+        "*.js",
+        "*.cjs"
+      ],
+      "rules": {
+        "@typescript-eslint/no-var-requires": "off",
+        "@typescript-eslint/no-require-imports": "off"
+      }
+    }
+  ]
 }

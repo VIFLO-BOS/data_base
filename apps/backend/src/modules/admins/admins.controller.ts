@@ -1,3 +1,5 @@
+import { InviteAdminDto } from './dto/invite-admin.dto';
+import { AcceptInvitationDto } from './dto/accept-invitation.dto';
 import { Controller, Post, Get, Body, Param, Request } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { AdminsService } from './admins.service';
@@ -13,7 +15,10 @@ export class AdminsController {
   @ApiBearerAuth()
   @Roles('super_admin')
   @ApiOperation({ summary: 'Invite a new admin' })
-  inviteAdmin(@Body() dto: { email: string; role: string }, @Request() req: any) {
+  inviteAdmin(
+    @Body() dto: InviteAdminDto,
+    @Request() req: any,
+  ) {
     return this.adminsService.inviteAdmin(dto.email, dto.role, req.user.id);
   }
 
@@ -27,7 +32,15 @@ export class AdminsController {
   @Public()
   @Post('invite/:token/accept')
   @ApiOperation({ summary: 'Accept an admin invitation' })
-  acceptInvitation(@Param('token') token: string, @Body() dto: any) {
+  acceptInvitation(@Param('token') token: string, @Body() dto: AcceptInvitationDto) {
     return this.adminsService.acceptInvitation(token, dto);
+  }
+
+  @Get('invitations/pending')
+  @ApiBearerAuth()
+  @Roles('super_admin', 'admin')
+  @ApiOperation({ summary: 'Get all pending admin invitations' })
+  getPendingInvitations() {
+    return this.adminsService.getPendingInvitations();
   }
 }

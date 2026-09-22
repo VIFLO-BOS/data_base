@@ -18,7 +18,7 @@ export class AuthController {
 
   @Public()
   @Post('register')
-  @ApiOperation({ summary: 'Register a new admin account' })
+  @ApiOperation({ summary: 'Register a client or tasker account' })
   async register(@Body() dto: RegisterDto) {
     const user = await this.AuthService.register(dto);
     return { success: true, ...user, message: 'User registered successfully' };
@@ -43,6 +43,12 @@ export class AuthController {
   @ApiOperation({ summary: 'Refresh access token' })
   refresh(@Body() dto: RefreshTokenDto) {
     return this.AuthService.refresh(dto.refreshToken);
+  }
+
+  @Public()
+  @Post('logout')
+  logout(@Body() dto: RefreshTokenDto) {
+    return this.AuthService.logout(dto.refreshToken);
   }
 
   @Get('me')

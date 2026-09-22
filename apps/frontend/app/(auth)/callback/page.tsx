@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { Loader2 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
@@ -9,10 +9,13 @@ import { useAuthStore } from '@/store/authStore';
 
 export default function AuthCallbackPage() {
   const router = useRouter();
+  const started = useRef(false);
   const { oauthSignIn } = useAuthStore();
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    if (started.current) return;
+    started.current = true;
     const handleCallback = async () => {
       try {
         const {
@@ -23,29 +26,11 @@ export default function AuthCallbackPage() {
         if (sessionError) throw sessionError;
         if (!session?.user) throw new Error('No active session found.');
 
-        const user = session.user;
-        const metadata = user.user_metadata || {};
-
-        const email = user.email!;
-        // GitHub might not provide full_name, fallback to user_name or email prefix
-        const fullName = metadata.full_name || metadata.user_name || email.split('@')[0];
-        const avatarUrl = metadata.avatar_url;
-
-        const nameParts = fullName.trim().split(/\s+/);
-        const firstName = nameParts[0];
-        const lastName = nameParts.slice(1).join(' ') || '';
-
         // Retrieve role intent if they registered
         const role =
           typeof window !== 'undefined' ? localStorage.getItem('oauth_role') || 'client' : 'client';
 
-        const { success, error: signInError } = await oauthSignIn(
-          email,
-          firstName,
-          lastName,
-          avatarUrl,
-          role,
-        );
+        const { success, error: signInError } = await oauthSignIn(session.access_token, role);
 
         if (!success) throw new Error(signInError || 'Failed to sync OAuth with backend');
 

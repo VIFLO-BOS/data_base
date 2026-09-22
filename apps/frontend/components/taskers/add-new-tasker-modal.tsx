@@ -24,8 +24,8 @@ export function AddNewTaskerModal({ onClose, onSubmit }: AddNewTaskerModalProps)
     accountNumber: '',
   });
 
-  const [selectedProjects, setSelectedProjects] = useState<{id: string; name: string}[]>([]);
-  const [selectedAccounts, setSelectedAccounts] = useState<{id: string; name: string}[]>([]);
+  const [selectedProjects, _setSelectedProjects] = useState<{id: string; name: string}[]>([]);
+  const [selectedAccounts, _setSelectedAccounts] = useState<{id: string; name: string}[]>([]);
 
   const isFormValid = formData.name.trim() !== '' && formData.email.trim() !== '';
 

@@ -3,7 +3,7 @@
  * Attaches required roles to route handlers.
  */
 import { SetMetadata } from '@nestjs/common';
-import { Role } from '@annotator-platform/shared-rbac';
+import { Role } from '@annotator/shared-rbac';
 
 export const ROLES_KEY = 'roles';
 

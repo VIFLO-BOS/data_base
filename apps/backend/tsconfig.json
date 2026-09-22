@@ -19,15 +19,21 @@
     "forceConsistentCasingInFileNames": false,
     "noFallthroughCasesInSwitch": false,
     "paths": {
-      "@/*": ["src/*"],
-      "@common/*": ["src/common/*"],
-      "@config/*": ["src/config/*"],
-      "@database/*": ["src/database/*"],
-      "@modules/*": ["src/modules/*"],
-      "@annotator-platform/shared-rbac": [
-        "../../packages/shared-rbac/src/index.ts"
+      "@/*": [
+        "src/*"
       ],
-      "@annotator-platform/shared-rbac/*": ["../../packages/shared-rbac/*"]
+      "@common/*": [
+        "src/common/*"
+      ],
+      "@config/*": [
+        "src/config/*"
+      ],
+      "@database/*": [
+        "src/database/*"
+      ],
+      "@modules/*": [
+        "src/modules/*"
+      ]
     }
   }
 }

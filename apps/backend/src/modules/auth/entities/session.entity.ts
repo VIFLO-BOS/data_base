@@ -7,6 +7,7 @@ import {
   Entity,
   PrimaryGeneratedColumn,
   Column,
+  Index,
   CreateDateColumn,
   ManyToOne,
   JoinColumn,
@@ -20,11 +21,9 @@ export class SessionEntity {
   @Column({ name: 'user_id' })
   userId: string;
 
+  @Index({ unique: true })
   @Column({ name: 'token_hash' })
   tokenHash: string;
-
-  @Column({ name: 'refresh_token_hash', nullable: true })
-  refreshTokenHash: string;
 
   @Column({ name: 'expires_at', type: 'timestamptz' })
   expiresAt: Date;

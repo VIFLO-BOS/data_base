@@ -3,7 +3,7 @@
  * Frontend service layer for account (client) CRUD operations.
  */
 import { apiClient } from './api-client';
-import type { PaginatedResponse } from './project-service';
+
 
 export interface Account {
   clientName: string;

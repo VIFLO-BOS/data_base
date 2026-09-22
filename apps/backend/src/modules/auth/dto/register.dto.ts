@@ -2,14 +2,14 @@
  * RegisterDto
  * TODO: Define validation rules and fields.
  */
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { ApiProperty } from '@nestjs/swagger';
 import {
   IsEmail,
   IsString,
   MinLength,
   MaxLength,
   Matches,
-  IsOptional,
+
 } from 'class-validator';
 export class RegisterDto {
   @ApiProperty({ example: 'admin@example.com' })
@@ -26,12 +26,14 @@ export class RegisterDto {
 
   @ApiProperty({ example: 'John' })
   @IsString()
+  @Matches(/\S/, { message: 'Name must not be blank' })
   @MinLength(1)
   @MaxLength(255)
   firstName: string;
 
   @ApiProperty({ example: 'Doe' })
   @IsString()
+  @Matches(/\S/, { message: 'Name must not be blank' })
   @MinLength(1)
   @MaxLength(255)
   lastName: string;
@@ -41,8 +43,4 @@ export class RegisterDto {
   @Matches(/^(client|tasker)$/, { message: 'Role must be either client or tasker' })
   role: string;
 
-  @ApiPropertyOptional({ example: 'https://example.com/avatar.jpg', description: 'Profile image URL or Base64' })
-  @IsString()
-  @IsOptional()
-  profileImage?: string;
 }

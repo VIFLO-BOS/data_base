@@ -133,7 +133,7 @@ function getColumns(
 export default function TimesheetsPage() {
   const [timesheets, setTimesheets] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const router = useRouter();
+  const _router = useRouter();
 
   // Period filter state
   const [activePeriod, setActivePeriod] = useState<'Day' | 'Week' | 'Month' | 'Year' | 'All Time'>(
@@ -228,7 +228,7 @@ export default function TimesheetsPage() {
 
           // If period is Week, the backend exact values are accurate for that period.
           // For Day/Month/Year/All Time, use the dynamically calculated ones from columns.
-          let finalTotalHoursNum = (period === 'Week') ? Number(t.totalHours || 0) : columnTotalHours;
+          const finalTotalHoursNum = (period === 'Week') ? Number(t.totalHours || 0) : columnTotalHours;
           let finalRawAmount = t.rawAmount;
           let finalTotalAmount = t.totalAmount || '₦0.00';
 
@@ -323,7 +323,7 @@ export default function TimesheetsPage() {
     setIsPaymentModalOpen(true);
   };
 
-  const handleMarkAsPaid = async (row: any) => {
+  const _handleMarkAsPaid = async (row: any) => {
     if (!row.taskerId || !row.projectId || !row.rawAmount) {
       toast.error('Cannot mark as paid. Missing required data.');
       return;

@@ -6,7 +6,7 @@ import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { ValidationPipe } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
-import { ConfigModule, ConfigService } from '@nestjs/config';
+import { ConfigService } from '@nestjs/config';
 
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
@@ -20,21 +20,27 @@ pg.types.setTypeParser(1082, (val: string) => val);
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, { bodyParser: false });
 
-  // Configure body parsers with increased payload limits
-  app.use(json({ limit: '50mb' }));
-  app.use(urlencoded({ extended: true, limit: '50mb' }));
+  // Bound JSON payloads below the function platform limit
+  app.use(json({ limit: '256kb' }));
+  app.use(urlencoded({ extended: true, limit: '256kb' }));
 
   const config = app.get(ConfigService);
 
   // CORS - allow frontend to call the api. MUST be before rate limit and helmet so blocked requests get headers.
   app.enableCors({
-    origin: config.get<string>('app.frontendUrl'),
+    origin: (requestOrigin, callback) => {
+      const allowed = config.get<string[]>('app.corsOrigins') || [];
+      callback(null, !requestOrigin || allowed.includes(requestOrigin));
+    },
     credentials: true,
   });
 
   // Trust the first proxy hop (needed for express-rate-limit behind a reverse proxy)
   const expressApp = app.getHttpAdapter().getInstance();
   expressApp.set('trust proxy', 1);
+  // The API accepts flat query parameters only. Avoid the extended `qs` parser and
+  // its nested-object attack surface for requests received from the public internet.
+  expressApp.set('query parser', 'simple');
 
   // Security headers
   app.use(helmet());
@@ -43,7 +49,7 @@ async function bootstrap() {
   app.use(
     rateLimit({
       windowMs: 15 * 60 * 1000, // 15 minutes
-      max: 5000, // Increased limit from 100 to 5000 for smoother development/usage
+      max: 300,
       message: 'Too many requests from this IP, please try again later.',
     }),
   );

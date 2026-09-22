@@ -179,7 +179,7 @@ export class DashboardAnalyticsService {
     const baseDate = filter.date ? new Date(filter.date) : new Date();
 
     let startDate: Date;
-    let endDate: Date = new Date(baseDate);
+    const endDate: Date = new Date(baseDate);
     endDate.setHours(23, 59, 59, 999);
 
     switch (filter.period?.toLowerCase()) {

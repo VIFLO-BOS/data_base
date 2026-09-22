@@ -64,7 +64,7 @@ function TimeCell({
 
 /* ─── Sticky column style helpers ─── */
 const stickyLeftBase = 'sticky z-10 bg-white group-hover:bg-zinc-50 transition-colors';
-const stickyHeaderBase = 'sticky z-20 bg-white';
+const _stickyHeaderBase = 'sticky z-20 bg-white';
 const stickyCornerBase = 'sticky z-30 bg-white'; // header cells that are ALSO sticky-left
 
 /**

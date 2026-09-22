@@ -15,7 +15,7 @@ export function showError(err: any, fallback = 'Something went wrong') {
   const msg = getErrorMessage(err) || fallback;
   try {
     toast.error(msg);
-  } catch (e) {
+  } catch (_e) {
     // swallow
   }
   // still log for debugging
@@ -24,7 +24,7 @@ export function showError(err: any, fallback = 'Something went wrong') {
     // log the user-facing message for quick inspection
     // eslint-disable-next-line no-console
     console.log(msg);
-  } catch (e) {
+  } catch (_e) {
     // ignore
   }
   // log full error details
@@ -35,7 +35,7 @@ export function showError(err: any, fallback = 'Something went wrong') {
 export function showSuccess(message: string) {
   try {
     toast.success(message);
-  } catch (e) {
+  } catch (_e) {
     // swallow
   }
 }

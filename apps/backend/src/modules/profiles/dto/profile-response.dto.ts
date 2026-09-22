@@ -2,7 +2,7 @@
  * ProfileResponseDto
  * TODO: Define validation rules and fields.
  */
-import { IsString, IsOptional, IsUUID } from 'class-validator';
+import { IsString, IsOptional } from 'class-validator';
 
 export class ProfileResponseDto {
   @IsString()

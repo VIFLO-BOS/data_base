@@ -631,7 +631,7 @@ REDIS_URL=redis://localhost:6379
 SMTP_HOST=smtp.example.com
 SMTP_PORT=587
 SMTP_USER=your-email@example.com
-SMTP_PASSWORD=your-email-password
+SMTP_PASS=your-email-password
 ```
 
 ---
@@ -705,3 +705,6 @@ This project is **private and proprietary**. All rights reserved.
 <p align="center">
   Built with TypeScript · Powered by Next.js & NestJS
 </p>
+
+
+Deployment configuration, security changes, and release verification are tracked in [VERCEL_DEPLOYMENT_CHECKLIST.md](VERCEL_DEPLOYMENT_CHECKLIST.md). Database release and bootstrap instructions are in [database/migrations/README.md](database/migrations/README.md). Both apps target Node 24. Password recovery, registration avatars, generated reports, and exports are unavailable for this release.

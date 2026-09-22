@@ -67,7 +67,7 @@ export default function AccountDetailsPage({ params }: { params: Promise<{ accou
   }
 
   // Calculate derived stats for AccountDetail
-  const totalProjects = account.projects?.length || 0;
+  const _totalProjects = account.projects?.length || 0;
   const uniqueTaskers = new Set();
   account.projects?.forEach((p) => {
     p.taskers?.forEach((t: any) => uniqueTaskers.add(t.id));
@@ -109,7 +109,7 @@ export default function AccountDetailsPage({ params }: { params: Promise<{ accou
           setEditingProject(project);
           setIsEditProjectOpen(true);
         }}
-        onRemoveProject={async (project: any) => {
+        onRemoveProject={async (_project: any) => {
           // Add your remove project logic here or delegate
         }}
         onToggleTaskerStatus={async (projectId: string, taskerId: string, status: any) => {
@@ -155,7 +155,7 @@ export default function AccountDetailsPage({ params }: { params: Promise<{ accou
       {isAddProjectOpen && (
         <AddProjectModal
           onClose={() => setIsAddProjectOpen(false)}
-          onAdd={async (data) => {
+          onAdd={async (_data) => {
             // Add project to account logic
             await fetchAccount();
             setIsAddProjectOpen(false);
@@ -169,7 +169,7 @@ export default function AccountDetailsPage({ params }: { params: Promise<{ accou
             setIsEditProjectOpen(false);
             setEditingProject(null);
           }}
-          onSave={async (data) => {
+          onSave={async (_data) => {
             // Handle edit project save
             await fetchAccount();
             setIsEditProjectOpen(false);

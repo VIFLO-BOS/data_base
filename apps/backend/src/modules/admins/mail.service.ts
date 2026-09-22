@@ -1,23 +1,25 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import * as nodemailer from 'nodemailer';
 import { ConfigService } from '@nestjs/config';
 
 @Injectable()
-export class MailService {
+export class MailService implements OnModuleInit {
   private transporter: nodemailer.Transporter;
   private readonly logger = new Logger(MailService.name);
   private isEthereal = false;
 
-  constructor(private configService: ConfigService) {
-    this.initTransporter();
-  }
+  constructor(private configService: ConfigService) {}
+
+  async onModuleInit() { await this.initTransporter(); }
 
   private async initTransporter() {
     const host = this.configService.get<string>('SMTP_HOST');
-    const port = this.configService.get<number>('SMTP_PORT');
+    const port = Number(this.configService.get<string>('SMTP_PORT') || 587);
     const user = this.configService.get<string>('SMTP_USER');
     const pass = this.configService.get<string>('SMTP_PASS');
 
+    if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error('Invalid SMTP_PORT');
+    if ((this.configService.get('NODE_ENV') === 'production' || this.configService.get('VERCEL') === '1') && (!host || !user || !pass || !this.configService.get('SMTP_FROM'))) throw new Error('Production SMTP configuration is incomplete');
     if (host && user && pass) {
       // Use provided real SMTP
       this.transporter = nodemailer.createTransport({
@@ -25,6 +27,9 @@ export class MailService {
         port: port || 587,
         secure: port === 465, // true for 465, false for other ports
         auth: { user, pass },
+        connectionTimeout: 5000,
+        greetingTimeout: 5000,
+        socketTimeout: 10000,
       });
       this.logger.log(`Initialized MailService with real SMTP (${host})`);
     } else {
@@ -70,12 +75,12 @@ export class MailService {
 
     try {
       const info = await this.transporter.sendMail(mailOptions);
-      this.logger.log(`Invitation email sent to ${email}`);
+      this.logger.log('Invitation email sent');
       if (this.isEthereal) {
         this.logger.log(`Ethereal Email Preview URL: ${nodemailer.getTestMessageUrl(info)}`);
       }
     } catch (error) {
-      this.logger.error(`Failed to send invitation email to ${email}`, error);
+      this.logger.error('Invitation email delivery failed');
       throw new Error('Failed to send email');
     }
   }

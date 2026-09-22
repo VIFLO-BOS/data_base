@@ -42,3 +42,8 @@ docker/volumes/
 *.key
 
 .vercel
+.turbo/
+.env.*
+!.env.example
+playwright-report/
+test-results/

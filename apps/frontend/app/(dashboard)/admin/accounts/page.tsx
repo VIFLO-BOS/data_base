@@ -21,13 +21,7 @@ import {
   deleteAccountPermanently,
   Account,
 } from '../../../../services/account-service';
-import {
-  createProject,
-  updateProject,
-  deleteProject,
-  assignAccountToProject,
-  removeAccountFromProject,
-} from '../../../../services/project-service';
+import { createProject, updateProject, assignAccountToProject, removeAccountFromProject } from '../../../../services/project-service';
 import {
   replaceAccountProjectTaskers,
   updateAssignmentStatus,
@@ -47,7 +41,7 @@ function formatHoursText(hours: number | string | null | undefined): string {
  * Full accounts lifecycle: empty state → list (All/Active/Archived) → detail view.
  */
 export default function AccountsPage() {
-  const router = useRouter();
+  const _router = useRouter();
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 

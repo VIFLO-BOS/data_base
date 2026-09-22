@@ -7,7 +7,7 @@ describe('TaskersService', () => {
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [TaskersService],
-    }).compile();
+    }).useMocker(() => ({})).compile();
 
     service = module.get<TaskersService>(TaskersService);
   });

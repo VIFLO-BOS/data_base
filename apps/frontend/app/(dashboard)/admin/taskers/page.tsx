@@ -17,7 +17,7 @@ import {
   Tasker,
 } from '../../../../services/tasker-service';
 import { Loader2 } from 'lucide-react';
-import { showError, showSuccess } from '@/lib/toast';
+import { showError } from '@/lib/toast';
 import { AddNewTaskerModal } from '@/components/taskers/add-new-tasker-modal';
 import { assignTaskerToProject } from '@/services/project-service';
 import { useRouter } from 'next/navigation';

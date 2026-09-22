@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, use } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { User, Lock, Loader2, ArrowRight, ShieldCheck } from 'lucide-react';
@@ -151,12 +151,15 @@ export default function InviteAcceptPage({ params }: { params: Promise<{ token: 
                 <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500 group-focus-within:text-indigo-400 transition-colors pointer-events-none" />
                 <input
                   type="password"
-                  placeholder="Minimum 8 characters"
+                  placeholder="8–16 characters, uppercase and number"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   className="w-full h-11 pl-10 pr-4 bg-white text-sm text-zinc-900 rounded-xl border border-white/20 placeholder:text-zinc-500 focus:bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
                   required
                   minLength={8}
+                  maxLength={16}
+                  pattern="(?=.*[A-Z])(?=.*[0-9]).{8,16}"
+                  title="Use 8–16 characters with at least one uppercase letter and one number"
                 />
               </div>
             </div>
@@ -173,6 +176,7 @@ export default function InviteAcceptPage({ params }: { params: Promise<{ token: 
                   className="w-full h-11 pl-10 pr-4 bg-white text-sm text-zinc-900 rounded-xl border border-white/20 placeholder:text-zinc-500 focus:bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
                   required
                   minLength={8}
+                  maxLength={16}
                 />
               </div>
             </div>

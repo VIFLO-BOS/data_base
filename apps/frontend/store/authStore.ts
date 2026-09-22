@@ -2,7 +2,7 @@
 
 import { create } from 'zustand';
 import * as authService from '../services/auth-service';
-import { isNetworkOrServerError, getErrorMessage } from '../services/api-client';
+import { isNetworkOrServerError, getErrorMessage, clearTokens } from '../services/api-client';
 import type { AuthUser } from '../services/auth-service';
 
 interface AuthState {
@@ -23,16 +23,9 @@ interface AuthState {
     firstName: string,
     lastName: string,
     role: string,
-    profileImage?: string,
   ) => Promise<{ success: boolean; error?: string }>;
-  oauthSignIn: (
-    email: string,
-    firstName: string,
-    lastName?: string,
-    profileImage?: string,
-    role?: string,
-  ) => Promise<{ success: boolean; error?: string }>;
-  signOut: () => void;
+  oauthSignIn: (accessToken: string, role?: string) => Promise<{ success: boolean; error?: string }>;
+  signOut: () => Promise<void>;
   clearError: () => void;
   resetPassword: (email: string) => Promise<{ success: boolean; error?: string }>;
   updatePassword: (password: string) => Promise<{ success: boolean; error?: string }>;
@@ -80,7 +73,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             try {
               cachedUser = JSON.parse(stored);
             } catch {
-              
+              // Ignore an invalid cached profile and await a successful server response.
             }
           }
         }
@@ -92,7 +85,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         });
       } else {
         // Genuine auth failure (401) — token is invalid, clear everything
-        authService.logout();
+        clearTokens();
         set({ user: null, isAuthenticated: false, isLoading: false, networkError: null });
       }
     }
@@ -125,10 +118,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
   },
 
-  signUp: async (email, password, firstName, lastName, role, profileImage) => {
+  signUp: async (email, password, firstName, lastName, role) => {
     set({ isLoading: true, error: null });
     try {
-      const response = await authService.register({ email, password, firstName, lastName, role, profileImage });
+      const response = await authService.register({ email, password, firstName, lastName, role });
       if (typeof window !== 'undefined') {
         localStorage.setItem('auth_user', JSON.stringify(response.user));
       }
@@ -147,10 +140,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
   },
 
-  oauthSignIn: async (email, firstName, lastName, profileImage, role = 'client') => {
+  oauthSignIn: async (accessToken, role = 'client') => {
     set({ isLoading: true, error: null });
     try {
-      const response = await authService.oauthLogin({ email, firstName, lastName, profileImage, role });
+      const response = await authService.oauthLogin({ accessToken, role });
       if (typeof window !== 'undefined') {
         localStorage.setItem('auth_user', JSON.stringify(response.user));
       }
@@ -169,8 +162,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
   },
 
-  signOut: () => {
-    authService.logout();
+  signOut: async () => {
+    try { await authService.logout(); } catch { set({ error: 'Signed out locally. Could not revoke the session on the server.' }); }
     if (typeof window !== 'undefined') {
       localStorage.removeItem('auth_user');
     }
@@ -179,31 +172,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   clearError: () => set({ error: null }),
 
-  resetPassword: async (email: string) => {
-    set({ isLoading: true, error: null });
-    try {
-      // Mock network delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      set({ isLoading: false });
-      return { success: true };
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      set({ isLoading: false, error: msg });
-      return { success: false, error: msg };
-    }
-  },
-
-  updatePassword: async (password: string) => {
-    set({ isLoading: true, error: null });
-    try {
-      // Mock network delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      set({ isLoading: false });
-      return { success: true };
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      set({ isLoading: false, error: msg });
-      return { success: false, error: msg };
-    }
-  },
+  resetPassword: async () => ({ success: false, error: 'Password recovery is currently unavailable. Contact your administrator.' }),
+  updatePassword: async () => ({ success: false, error: 'Password recovery is currently unavailable. Contact your administrator.' }),
 }));

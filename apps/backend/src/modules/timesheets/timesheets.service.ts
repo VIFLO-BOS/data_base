@@ -84,20 +84,6 @@ export class TimesheetsService {
 
     const existingTimesheets = await tsQb.getMany();
 
-    let paymentSums: any[] = [];
-    if (assignments.length > 0) {
-      const taskerIds = [...new Set(assignments.map(a => a.taskerId))];
-      paymentSums = await this.paymentsRepo
-        .createQueryBuilder('p')
-        .select('p.taskerId', 'taskerId')
-        .addSelect('p.projectId', 'projectId')
-        .addSelect('SUM(p.amount)', 'total')
-        .where('p.taskerId IN (:...taskerIds)', { taskerIds })
-        .groupBy('p.taskerId')
-        .addGroupBy('p.projectId')
-        .getRawMany();
-    }
-
     const mappedData = assignments.map(a => {
       // Find ALL matching timesheets for this assignment (could be multiple weeks)
       const matchingTimesheets = existingTimesheets.filter(ts =>
@@ -299,7 +285,7 @@ export class TimesheetsService {
         );
       }
 
-      let entry = ts.entries?.find(
+      const entry = ts.entries?.find(
         (e) => {
           // Normalize both sides to YYYY-MM-DD without going through UTC conversion
           const stored = e.entryDate instanceof Date

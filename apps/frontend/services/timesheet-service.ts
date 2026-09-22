@@ -3,7 +3,7 @@
  * Frontend service layer for timesheet CRUD and workflow operations.
  */
 import { apiClient } from './api-client';
-import type { PaginatedResponse } from './project-service';
+
 
 export interface Timesheet {
   id: string;

@@ -1,4 +1,4 @@
-export function formatDate(date: Date | string, format: string = 'YYYY-MM-DD'): string {
+export function formatDate(date: Date | string, _format: string = 'YYYY-MM-DD'): string {
   // TODO: Implement date formatting
   return new Date(date).toISOString();
 }

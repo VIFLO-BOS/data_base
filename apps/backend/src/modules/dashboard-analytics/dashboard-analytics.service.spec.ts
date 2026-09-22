@@ -7,7 +7,7 @@ describe('DashboardAnalyticsService', () => {
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [DashboardAnalyticsService],
-    }).compile();
+    }).useMocker(() => ({})).compile();
 
     service = module.get<DashboardAnalyticsService>(DashboardAnalyticsService);
   });

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { X, ChevronDown, Search } from 'lucide-react';
+import { X, ChevronDown } from 'lucide-react';
 import { getProjects, Project } from '../../services/project-service';
 import { getAccounts, Account } from '../../services/account-service';
 import { showError } from '@/lib/toast';

@@ -13,7 +13,7 @@ import {
 } from '../../../../../services/tasker-service';
 import { getProjects, Project } from '../../../../../services/project-service';
 import { getErrorMessage } from '../../../../../services/api-client';
-import { ArrowLeft, Loader2, MoreVertical, ChevronRight } from 'lucide-react';
+import { Loader2, MoreVertical, ChevronRight } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { AssignAccountModal } from '../../../../../components/taskers/assign-account-modal';
 import { deleteAccount } from '@/services/account-service';
@@ -29,15 +29,15 @@ function formatHoursText(hours: number | string | null | undefined): string {
 export default function TaskerDetailsPage({ params }: { params: Promise<{ taskerId: string }> }) {
   const router = useRouter();
   const [tasker, setTasker] = useState<Tasker | null>(null);
-  const [allProjects, setAllProjects] = useState<Project[]>([]);
+  const [_allProjects, setAllProjects] = useState<Project[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   const resolvedParams = React.use(params);
   const taskerId = resolvedParams.taskerId;
 
   // Modals state
-  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
-  const [isHoursModalOpen, setIsHoursModalOpen] = useState(false);
+  const [_isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+  const [_isHoursModalOpen, setIsHoursModalOpen] = useState(false);
   const [editingPaymentId, setEditingPaymentId] = useState<string | null>(null);
   const [editingHourId, setEditingHourId] = useState<string | null>(null);
 
@@ -50,7 +50,7 @@ export default function TaskerDetailsPage({ params }: { params: Promise<{ tasker
     projectId: '',
     accountId: '',
   });
-  const [workContexts, setWorkContexts] = useState<
+  const [_workContexts, setWorkContexts] = useState<
     { accountId: string; projectId: string; label: string }[]
   >([]);
 
@@ -120,7 +120,7 @@ export default function TaskerDetailsPage({ params }: { params: Promise<{ tasker
     }
   }
 
-  async function handleAddPayment(e: React.FormEvent<HTMLFormElement>) {
+  async function _handleAddPayment(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (!tasker) return;
     try {
@@ -149,7 +149,7 @@ export default function TaskerDetailsPage({ params }: { params: Promise<{ tasker
     }
   }
 
-  async function handleAddHours(e: React.FormEvent<HTMLFormElement>) {
+  async function _handleAddHours(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (!tasker) return;
     try {

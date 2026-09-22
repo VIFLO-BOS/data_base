@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useRefreshOnFocus, notifyDataMutated } from '../../../../hooks/use-refresh-on-focus';
 import { ProjectsHeader } from '../../../../components/projects/projects-header';
@@ -9,15 +9,9 @@ import { EmptyState } from '../../../../components/projects/empty-state';
 import { NewProjectModal } from '../../../../components/projects/new-project-modal';
 import { ProjectSuccessModal } from '../../../../components/projects/project-success-modal';
 import { ProjectList } from '../../../../components/projects/project-list';
-import {
-  getProjects,
-  createProject,
-  deleteProject,
-  deleteProjectPermanently,
-  Project,
-} from '../../../../services/project-service';
+import { getProjects, createProject, deleteProjectPermanently, Project } from '../../../../services/project-service';
 import { Loader2 } from 'lucide-react';
-import { showError, showSuccess } from '@/lib/toast';
+import { showError } from '@/lib/toast';
 
 export default function ProjectsPage() {
   const router = useRouter();

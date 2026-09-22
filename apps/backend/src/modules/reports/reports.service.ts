@@ -3,7 +3,7 @@
  * TODO: Implement business logic for reports.
  */
 
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ReportEntity } from './entities/report.entity';
@@ -49,22 +49,8 @@ export class ReportsService {
     return report;
   }
 
-  async generate(dto: GenerateReportDto, userId: string) {
-    // TODO: Add actual data aggregation logic based on dto.type
-    const reportData = {
-      generatedAt: new Date().toISOString(),
-      type: dto.type,
-      filters: dto.filters,
-    };
-
-    const report = this.reportsRepo.create({
-      name: dto.name,
-      type: dto.type,
-      filters: dto.filters,
-      data: reportData,
-      generatedBy: userId,
-    });
-    return this.reportsRepo.save(report);
+  async generate(_dto: GenerateReportDto, _userId: string) {
+    throw new ServiceUnavailableException('Report generation is currently unavailable');
   }
 
   async delete(id: string) {

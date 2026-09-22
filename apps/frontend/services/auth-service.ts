@@ -3,7 +3,7 @@
  * Handles authentication API calls: login, register, refresh, getMe.
  * Uses the central apiClient for all requests.
  */
-import { apiClient, setTokens, clearTokens, getErrorMessage } from './api-client';
+import { apiClient, setTokens, clearTokens, getErrorMessage, getRefreshToken } from './api-client';
 
 // ─── Types ────────────────────────────────────────────────────────
 export interface AuthUser {
@@ -29,14 +29,10 @@ export interface RegisterPayload {
   firstName: string;
   lastName: string;
   role: string;
-  profileImage?: string;
 }
 
 export interface OAuthLoginPayload {
-  email: string;
-  firstName: string;
-  lastName?: string;
-  profileImage?: string;
+  accessToken: string;
   role: string;
 }
 
@@ -110,8 +106,10 @@ export async function getMe(): Promise<AuthUser> {
 /**
  * Logout: clear tokens from storage.
  */
-export function logout() {
-  clearTokens();
+export async function logout() {
+  const token = getRefreshToken();
+  try { if (token) await apiClient.post('/auth/logout', { refreshToken: token }); }
+  finally { clearTokens(); }
 }
 
 export { getErrorMessage };

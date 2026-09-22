@@ -21,7 +21,8 @@ export function isNetworkOrServerError(error: unknown): boolean {
   return false;
 }
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || (process.env.NODE_ENV !== 'production' ? 'http://localhost:3001' : '');
+if (!API_BASE_URL || new URL(API_BASE_URL).origin !== API_BASE_URL) throw new Error('NEXT_PUBLIC_API_URL must be an origin without a path or trailing slash');
 
 export const apiClient = axios.create({
   baseURL: `${API_BASE_URL}/api/v1`,
@@ -40,13 +41,15 @@ function getAccessToken(): string | null {
   return localStorage.getItem('access_token') || sessionStorage.getItem('access_token');
 }
 
-function getRefreshToken(): string | null {
+export function getRefreshToken(): string | null {
   if (typeof window === 'undefined') return null;
   return localStorage.getItem('refresh_token') || sessionStorage.getItem('refresh_token');
 }
 
 export function setTokens(access: string, refresh: string) {
   if (shouldRemember()) {
+    sessionStorage.removeItem('access_token');
+    sessionStorage.removeItem('refresh_token');
     localStorage.setItem('access_token', access);
     localStorage.setItem('refresh_token', refresh);
   } else {
@@ -60,6 +63,8 @@ export function setTokens(access: string, refresh: string) {
 }
 
 export function clearTokens() {
+  if (typeof window === 'undefined') return;
+  localStorage.removeItem('auth_user');
   localStorage.removeItem('access_token');
   localStorage.removeItem('refresh_token');
   sessionStorage.removeItem('access_token');
@@ -99,15 +104,18 @@ apiClient.interceptors.response.use(
   async (error: AxiosError) => {
     const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
 
+    if (!originalRequest) return Promise.reject(error);
     const url = originalRequest.url || '';
     const isAuthEndpoint =
       url.includes('/auth/login') ||
       url.includes('/auth/register') ||
       url.includes('/auth/refresh') ||
-      url.includes('/auth/me'); // <-- exclude /auth/me from retry to avoid double-logout
+      url.includes('/auth/oauth-login') ||
+      url.includes('/auth/logout');
 
     // Only attempt refresh on 401, not on auth-related endpoints
     if (error.response?.status === 401 && !originalRequest._retry && !isAuthEndpoint) {
+      originalRequest._retry = true;
       if (isRefreshing) {
         // Queue requests while refresh is in progress
         return new Promise((resolve, reject) => {
@@ -126,20 +134,12 @@ apiClient.interceptors.response.use(
       originalRequest._retry = true;
       isRefreshing = true;
 
-      const refreshToken = getRefreshToken();
-      if (!refreshToken) {
-        clearTokens();
-        processQueue(error, null);
-        if (typeof window !== 'undefined') {
-          window.dispatchEvent(new Event('auth:logout'));
-        }
-        return Promise.reject(error);
-      }
-
       try {
+        const refreshToken = getRefreshToken();
+        if (!refreshToken) throw error;
         const { data } = await axios.post(`${API_BASE_URL}/api/v1/auth/refresh`, {
           refreshToken,
-        });
+        }, { timeout: 10000 });
 
         setTokens(data.data.accessToken, data.data.refreshToken);
         processQueue(null, data.data.accessToken);

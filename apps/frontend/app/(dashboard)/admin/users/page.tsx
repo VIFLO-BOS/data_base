@@ -1,10 +1,8 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
-import { Users, Search, Shield, UserPlus, X, Loader2 } from "lucide-react";
+import React, { useState } from "react";
+import { Users, Search, Shield } from "lucide-react";
 import { useAuthStore } from "../../../../store/authStore";
-import { apiClient } from "../../../../services/api-client";
-import { toast } from "react-hot-toast";
 
 const mockUsers = [
   { id: '1', email: 'admin@paylio.com', firstName: 'Admin', lastName: 'User', status: 'active', roles: ['admin'], createdAt: 'Oct 1, 2023' },
@@ -29,29 +27,7 @@ const statusColors: Record<string, string> = {
 export default function UsersPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const { user } = useAuthStore();
-  const isSuperAdmin = user?.roles?.includes('super_admin');
-
-  const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
-  const [inviteEmail, setInviteEmail] = useState("");
-  const [inviteRole, setInviteRole] = useState("admin");
-  const [isInviting, setIsInviting] = useState(false);
-
-  const handleInviteSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!inviteEmail) return;
-    setIsInviting(true);
-    try {
-      await apiClient.post('/admins/invite', { email: inviteEmail, role: inviteRole });
-      toast.success('Invitation sent successfully!');
-      setIsInviteModalOpen(false);
-      setInviteEmail('');
-      setInviteRole('admin');
-    } catch (error: any) {
-      toast.error(error?.response?.data?.message || 'Failed to send invitation');
-    } finally {
-      setIsInviting(false);
-    }
-  };
+  const _isSuperAdmin = user?.roles?.includes('super_admin');
 
   const filteredUsers = mockUsers.filter(u =>
     u.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -70,22 +46,13 @@ export default function UsersPage() {
               </div>
               <div>
                 <div className="text-stone-900 text-xl lg:text-2xl font-semibold leading-6 tracking-[-0.02em]">
-                  User Management
+                  System Users
                 </div>
                 <div className="text-zinc-400 text-xs font-medium mt-0.5">
-                  Manage all platform users and roles
+                  Manage all platform administrators and users
                 </div>
               </div>
             </div>
-            {isSuperAdmin && (
-              <button
-                onClick={() => setIsInviteModalOpen(true)}
-                className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
-              >
-                <UserPlus className="w-4 h-4" />
-                Invite Admin
-              </button>
-            )}
           </div>
 
           {/* Search */}
@@ -144,60 +111,6 @@ export default function UsersPage() {
           </div>
         </div>
       </div>
-
-      {isInviteModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl w-full max-w-md shadow-xl overflow-hidden">
-            <div className="flex justify-between items-center p-6 border-b border-gray-100">
-              <h2 className="text-xl font-semibold text-gray-900">Invite Admin</h2>
-              <button onClick={() => setIsInviteModalOpen(false)} className="text-gray-400 hover:text-gray-600">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            <form onSubmit={handleInviteSubmit} className="p-6 flex flex-col gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Email Address</label>
-                <input
-                  type="email"
-                  required
-                  value={inviteEmail}
-                  onChange={(e) => setInviteEmail(e.target.value)}
-                  className="w-full h-10 px-3 bg-white border border-gray-200 rounded-lg text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
-                  placeholder="admin@example.com"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Role</label>
-                <select
-                  value={inviteRole}
-                  onChange={(e) => setInviteRole(e.target.value)}
-                  className="w-full h-10 px-3 bg-white border border-gray-200 rounded-lg text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
-                >
-                  <option value="admin">Admin</option>
-                  <option value="super_admin">Super Admin</option>
-                </select>
-              </div>
-              <div className="mt-4 flex gap-3 justify-end">
-                <button
-                  type="button"
-                  onClick={() => setIsInviteModalOpen(false)}
-                  className="px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-900"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={isInviting || !inviteEmail}
-                  className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
-                >
-                  {isInviting && <Loader2 className="w-4 h-4 animate-spin" />}
-                  Send Invitation
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

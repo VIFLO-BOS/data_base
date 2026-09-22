@@ -1,3 +1,4 @@
+import { getRolePermissions, hasPermission, Role } from '@annotator/shared-rbac';
 /**
  * Permissions Guard
  * Protects routes based on user permissions.
@@ -18,6 +19,7 @@ export class PermissionsGuard implements CanActivate {
     if (!requiredPermissions) return true;
 
     const { user } = context.switchToHttp().getRequest();
-    return requiredPermissions.every((perm) => user?.permissions?.includes(perm));
+    const permissions = (user?.roles || []).flatMap((role: { name: Role }) => getRolePermissions(role.name));
+    return requiredPermissions.every((perm) => hasPermission(permissions, perm));
   }
 }
