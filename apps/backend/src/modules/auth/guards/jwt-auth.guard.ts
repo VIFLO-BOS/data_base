@@ -12,12 +12,12 @@ import {
   ServiceUnavailableException,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { IS_PUBLIC_KEY } from '@/common/decorators/public.decorator';
+import { IS_PUBLIC_KEY } from '../../../common/decorators/public.decorator';
 import { ConfigService } from '@nestjs/config';
 import * as jwt from 'jsonwebtoken';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { UserEntity } from '@/modules/users/entities/user.entity';
+import { UserEntity } from '../../users/entities/user.entity';
 @Injectable()
 export class JwtAuthGuard implements CanActivate {
   constructor(

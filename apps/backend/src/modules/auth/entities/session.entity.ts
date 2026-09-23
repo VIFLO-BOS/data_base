@@ -2,7 +2,7 @@
  * SessionEntity
  * TODO: Define columns, relations, and constraints.
  */
-import { UserEntity } from '@/modules/users/entities/user.entity';
+import { UserEntity } from '../../users/entities/user.entity';
 import {
   Entity,
   PrimaryGeneratedColumn,

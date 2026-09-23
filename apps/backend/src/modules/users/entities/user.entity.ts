@@ -2,7 +2,7 @@
  * UserEntity
  * TODO: Define columns, relations, and constraints.
  */
-import { RoleEntity } from '@/modules/roles/entities/role.entity';
+import { RoleEntity } from '../../roles/entities/role.entity';
 import {
   Entity,
   PrimaryGeneratedColumn,
