@@ -47,3 +47,6 @@ docker/volumes/
 !.env.example
 playwright-report/
 test-results/
+
+.vercel
+.env*
