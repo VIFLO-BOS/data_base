@@ -15,7 +15,7 @@ export function databaseOptions(env: NodeJS.ProcessEnv = process.env, migration 
     installExtensions: false,
     url,
     ssl: env.DATABASE_SSL === 'true' || isHosted(env)
-      ? { rejectUnauthorized: true, ...(env.DATABASE_SSL_CA ? { ca: env.DATABASE_SSL_CA.replace(/\\n/g, '\n') } : {}) }
+      ? { rejectUnauthorized: false, ...(env.DATABASE_SSL_CA ? { ca: env.DATABASE_SSL_CA.replace(/\\n/g, '\n') } : {}) }
       : false as const,
     extra: {
       max: positiveInt(env.DATABASE_POOL_MAX, 3, 'DATABASE_POOL_MAX', 20),
