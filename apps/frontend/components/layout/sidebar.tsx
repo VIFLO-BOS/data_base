@@ -35,14 +35,13 @@ export function Sidebar() {
   const pathname = usePathname();
   const { user } = useAuthStore();
 
-  const primaryRole = user?.roles?.[0] || 'admin';
-  let currentNavItems = adminNavItems;
-
-  if (primaryRole === 'client') {
-    currentNavItems = clientNavItems;
-  } else if (primaryRole === 'tasker') {
-    currentNavItems = taskerNavItems;
-  }
+  const currentNavItems = user?.roles?.some(role => role === 'admin' || role === 'super_admin')
+    ? adminNavItems
+    : user?.roles?.includes('client')
+      ? clientNavItems
+      : user?.roles?.includes('tasker')
+        ? taskerNavItems
+        : [];
 
   return (
     <aside className="w-60 h-screen bg-white border-r border-zinc-100 hidden lg:flex flex-col justify-start items-start shrink-0">

@@ -4,6 +4,7 @@ import React, { useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '../../store/authStore';
 import toast from 'react-hot-toast';
+import { getDashboardPath } from '../../lib/auth';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -63,17 +64,9 @@ export function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) 
     if (allowedRoles && allowedRoles.length > 0 && user) {
       const hasRole = user?.roles?.some((r) => allowedRoles.includes(r));
       if (!hasRole) {
-        // Redirect to user's own dashboard based on their primary role
-        const primaryRole = user?.roles?.[0];
-        if (primaryRole === 'admin') {
-          router.replace('/admin/dashboard');
-        } else if (primaryRole === 'client') {
-          router.replace('/client/dashboard');
-        } else if (primaryRole === 'tasker') {
-          router.replace('/tasker/dashboard');
-        } else {
-          router.replace('/login');
-        }
+        const destination = getDashboardPath(user.roles);
+        if (destination) router.replace(destination);
+        else void signOut().finally(() => router.replace('/login'));
       }
     }
   }, [isLoading, isAuthenticated, user, allowedRoles, router]);

@@ -1,26 +1,30 @@
-"use client";
+'use client';
 
-import React, { useState, useEffect } from "react";
-import { Settings, Save, Mail, UserPlus, X, Loader2, Users } from "lucide-react";
-import { toast } from "react-hot-toast";
-import { apiClient } from "../../../../services/api-client";
-import { useAuthStore } from "../../../../store/authStore";
+import React, { useState, useEffect } from 'react';
+import { Settings, Save, Mail, UserPlus, X, Loader2, Users, KeyRound } from 'lucide-react';
+import { toast } from 'react-hot-toast';
+import { apiClient } from '../../../../services/api-client';
+import { useAuthStore } from '../../../../store/authStore';
+import { ResetAdminPasswordModal } from '../../../../components/modals/reset-admin-password-modal';
 
 export default function SettingsPage() {
   const { user } = useAuthStore();
-  
+  const isSuperAdmin = user?.roles?.includes('super_admin') ?? false;
+
   // Invite state
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
-  const [inviteEmail, setInviteEmail] = useState("");
-  const [inviteRole, setInviteRole] = useState("admin");
+  const [inviteEmail, setInviteEmail] = useState('');
   const [isInviting, setIsInviting] = useState(false);
-  
+
+  // Reset Password state
+  const [isResetPasswordModalOpen, setIsResetPasswordModalOpen] = useState(false);
+
   // Pending Invites state
   const [pendingInvites, setPendingInvites] = useState<any[]>([]);
 
   useEffect(() => {
-    fetchPendingInvites();
-  }, []);
+    if (isSuperAdmin) fetchPendingInvites();
+  }, [isSuperAdmin]);
 
   const fetchPendingInvites = async () => {
     try {
@@ -29,7 +33,7 @@ export default function SettingsPage() {
         setPendingInvites(data.data);
       }
     } catch (err) {
-      console.error("Failed to fetch pending invitations", err);
+      console.error('Failed to fetch pending invitations', err);
     }
   };
 
@@ -39,11 +43,10 @@ export default function SettingsPage() {
 
     setIsInviting(true);
     try {
-      await apiClient.post('/admins/invite', { email: inviteEmail, role: inviteRole });
+      await apiClient.post('/admins/invite', { email: inviteEmail });
       toast.success('Invitation sent successfully!');
       setIsInviteModalOpen(false);
       setInviteEmail('');
-      setInviteRole('admin');
       fetchPendingInvites(); // Refresh list
     } catch (err: any) {
       toast.error(err?.response?.data?.message || 'Failed to send invitation');
@@ -78,35 +81,51 @@ export default function SettingsPage() {
 
           <div className="w-full max-w-3xl grid gap-8">
             {/* Admin Management Section */}
-            {(user?.roles?.includes('super_admin') || user?.roles?.includes('admin')) && (
+            {isSuperAdmin && (
               <div className="grid gap-4">
                 <div className="flex items-center justify-between border-b border-stone-100 pb-2">
                   <h3 className="text-stone-900 font-semibold flex items-center gap-2">
                     <Users className="w-4 h-4 text-indigo-600" />
                     Admin Management
                   </h3>
-                  <button 
-                    onClick={() => setIsInviteModalOpen(true)}
-                    className="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 text-sm font-medium rounded-lg transition-colors flex items-center gap-1.5"
-                  >
-                    <UserPlus className="w-4 h-4" />
-                    Invite Admin
-                  </button>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setIsResetPasswordModalOpen(true)}
+                      className="px-3 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-700 text-sm font-medium rounded-lg transition-colors flex items-center gap-1.5"
+                    >
+                      <KeyRound className="w-4 h-4" />
+                      Reset Password
+                    </button>
+                    <button
+                      onClick={() => setIsInviteModalOpen(true)}
+                      className="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 text-sm font-medium rounded-lg transition-colors flex items-center gap-1.5"
+                    >
+                      <UserPlus className="w-4 h-4" />
+                      Invite Admin
+                    </button>
+                  </div>
                 </div>
-                
+
                 {/* Pending Invitations List */}
                 {pendingInvites.length > 0 ? (
                   <div className="flex flex-col gap-2">
-                    <p className="text-xs font-medium text-stone-500 uppercase tracking-wider mb-1">Pending Invitations</p>
+                    <p className="text-xs font-medium text-stone-500 uppercase tracking-wider mb-1">
+                      Pending Invitations
+                    </p>
                     {pendingInvites.map((invite) => (
-                      <div key={invite.id} className="flex items-center justify-between p-3 bg-stone-50 border border-stone-100 rounded-lg">
+                      <div
+                        key={invite.id}
+                        className="flex items-center justify-between p-3 bg-stone-50 border border-stone-100 rounded-lg"
+                      >
                         <div className="flex items-center gap-3">
                           <div className="w-8 h-8 rounded-full bg-orange-100 flex items-center justify-center">
                             <Mail className="w-4 h-4 text-orange-600" />
                           </div>
                           <div>
                             <p className="text-sm font-medium text-stone-900">{invite.email}</p>
-                            <p className="text-xs text-stone-500 capitalize">{invite.role.replace('_', ' ')}</p>
+                            <p className="text-xs text-stone-500 capitalize">
+                              {invite.role.replace('_', ' ')}
+                            </p>
                           </div>
                         </div>
                         <div className="text-xs text-stone-400">
@@ -125,54 +144,84 @@ export default function SettingsPage() {
 
             {/* General Settings */}
             <div className="grid gap-4">
-              <h3 className="text-stone-900 font-semibold border-b border-stone-100 pb-2">General Configuration</h3>
+              <h3 className="text-stone-900 font-semibold border-b border-stone-100 pb-2">
+                General Configuration
+              </h3>
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="flex flex-col gap-1.5">
                   <label className="text-sm font-medium text-stone-700">Platform Name</label>
-                  <input type="text" defaultValue="Paylio" className="h-10 px-3 bg-stone-50 border border-stone-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none" />
+                  <input
+                    type="text"
+                    defaultValue="Paylio"
+                    className="h-10 px-3 bg-stone-50 border border-stone-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none"
+                  />
                 </div>
                 <div className="flex flex-col gap-1.5">
                   <label className="text-sm font-medium text-stone-700">Support Email</label>
-                  <input type="email" defaultValue="support@paylio.com" className="h-10 px-3 bg-stone-50 border border-stone-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none" />
+                  <input
+                    type="email"
+                    defaultValue="support@paylio.com"
+                    className="h-10 px-3 bg-stone-50 border border-stone-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none"
+                  />
                 </div>
               </div>
             </div>
 
             {/* Notification Preferences */}
             <div className="grid gap-4">
-              <h3 className="text-stone-900 font-semibold border-b border-stone-100 pb-2">Admin Notifications</h3>
+              <h3 className="text-stone-900 font-semibold border-b border-stone-100 pb-2">
+                Admin Notifications
+              </h3>
               <div className="grid gap-3">
                 <label className="flex items-center gap-3 cursor-pointer">
-                  <input type="checkbox" defaultChecked className="w-4 h-4 text-indigo-600 rounded border-stone-300 focus:ring-indigo-500" />
-                  <span className="text-sm text-stone-700">Email me when a new Tasker registers</span>
+                  <input
+                    type="checkbox"
+                    defaultChecked
+                    className="w-4 h-4 text-indigo-600 rounded border-stone-300 focus:ring-indigo-500"
+                  />
+                  <span className="text-sm text-stone-700">
+                    Email me when a new Tasker registers
+                  </span>
                 </label>
                 <label className="flex items-center gap-3 cursor-pointer">
-                  <input type="checkbox" defaultChecked className="w-4 h-4 text-indigo-600 rounded border-stone-300 focus:ring-indigo-500" />
+                  <input
+                    type="checkbox"
+                    defaultChecked
+                    className="w-4 h-4 text-indigo-600 rounded border-stone-300 focus:ring-indigo-500"
+                  />
                   <span className="text-sm text-stone-700">Email me on payout failures</span>
                 </label>
                 <label className="flex items-center gap-3 cursor-pointer">
-                  <input type="checkbox" className="w-4 h-4 text-indigo-600 rounded border-stone-300 focus:ring-indigo-500" />
+                  <input
+                    type="checkbox"
+                    className="w-4 h-4 text-indigo-600 rounded border-stone-300 focus:ring-indigo-500"
+                  />
                   <span className="text-sm text-stone-700">Weekly platform summary report</span>
                 </label>
               </div>
             </div>
-            
+
             {/* Theme / Appearance */}
-            <div className="grid gap-4">
-              <h3 className="text-stone-900 font-semibold border-b border-stone-100 pb-2">Appearance</h3>
+            {/*<div className="grid gap-4">
+              <h3 className="text-stone-900 font-semibold border-b border-stone-100 pb-2">
+                Appearance
+              </h3>
               <div className="flex items-center gap-4">
                 <div className="px-4 py-2 border-2 border-indigo-500 bg-stone-50 rounded-lg font-medium text-indigo-700 text-sm cursor-pointer flex items-center gap-2">
-                  <div className="w-4 h-4 rounded-full bg-white border border-indigo-200"></div> Light
+                  <div className="w-4 h-4 rounded-full bg-white border border-indigo-200"></div>{' '}
+                  Light
                 </div>
                 <div className="px-4 py-2 border border-stone-200 bg-stone-50 rounded-lg font-medium text-stone-600 text-sm cursor-pointer flex items-center gap-2 hover:border-stone-300">
-                  <div className="w-4 h-4 rounded-full bg-stone-800 border border-stone-700"></div> Dark
+                  <div className="w-4 h-4 rounded-full bg-stone-800 border border-stone-700"></div>{' '}
+                  Dark
                 </div>
                 <div className="px-4 py-2 border border-stone-200 bg-stone-50 rounded-lg font-medium text-stone-600 text-sm cursor-pointer flex items-center gap-2 hover:border-stone-300">
-                  <div className="w-4 h-4 rounded-full bg-gradient-to-br from-stone-200 to-stone-800 border border-stone-300"></div> System
+                  <div className="w-4 h-4 rounded-full bg-gradient-to-br from-stone-200 to-stone-800 border border-stone-300"></div>{' '}
+                  System
                 </div>
               </div>
-            </div>
 
+            </div>*/}
           </div>
         </div>
       </div>
@@ -183,13 +232,18 @@ export default function SettingsPage() {
           <div className="bg-white rounded-2xl w-full max-w-md shadow-xl overflow-hidden">
             <div className="flex justify-between items-center p-6 border-b border-stone-100">
               <h2 className="text-xl font-semibold text-stone-900">Invite Admin</h2>
-              <button onClick={() => setIsInviteModalOpen(false)} className="text-stone-400 hover:text-stone-600 transition-colors">
+              <button
+                onClick={() => setIsInviteModalOpen(false)}
+                className="text-stone-400 hover:text-stone-600 transition-colors"
+              >
                 <X className="w-5 h-5" />
               </button>
             </div>
             <form onSubmit={handleInviteSubmit} className="p-6 flex flex-col gap-4">
               <div>
-                <label className="block text-sm font-medium text-stone-700 mb-1">Email Address</label>
+                <label className="block text-sm font-medium text-stone-700 mb-1">
+                  Email Address
+                </label>
                 <input
                   type="email"
                   required
@@ -199,17 +253,10 @@ export default function SettingsPage() {
                   placeholder="admin@paylio.com"
                 />
               </div>
-              <div>
-                <label className="block text-sm font-medium text-stone-700 mb-1">Role</label>
-                <select
-                  value={inviteRole}
-                  onChange={(e) => setInviteRole(e.target.value)}
-                  className="w-full h-10 px-3 bg-white border border-stone-200 rounded-lg text-sm text-stone-900 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
-                >
-                  <option value="admin">Admin</option>
-                  <option value="super_admin">Super Admin</option>
-                </select>
-              </div>
+              <p className="text-sm text-stone-500">
+                Invitations create a standard administrator account. Super-admin access cannot be
+                invited.
+              </p>
               <div className="mt-4 flex gap-3 justify-end">
                 <button
                   type="button"
@@ -231,6 +278,12 @@ export default function SettingsPage() {
           </div>
         </div>
       )}
+
+      {/* Reset Password Modal */}
+      <ResetAdminPasswordModal
+        isOpen={isResetPasswordModalOpen}
+        onClose={() => setIsResetPasswordModalOpen(false)}
+      />
     </div>
   );
 }

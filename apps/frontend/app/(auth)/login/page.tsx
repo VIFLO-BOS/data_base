@@ -7,6 +7,7 @@ import { Mail, Lock, Loader2, ArrowRight } from 'lucide-react';
 import { useAuthStore } from '../../../store/authStore';
 import { supabase } from '@/lib/supabase';
 import { showError } from '@/lib/toast';
+import { getDashboardPath } from '@/lib/auth';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -51,15 +52,13 @@ export default function LoginPage() {
     setIsSubmitting(false);
 
     if (success) {
-      // Redirect based on user role
       const user = useAuthStore.getState().user;
-      const primaryRole = user?.roles?.[0] || 'admin';
-      if (primaryRole === 'client') {
-        router.push('/client/dashboard');
-      } else if (primaryRole === 'tasker') {
-        router.push('/tasker/dashboard');
+      const destination = getDashboardPath(user?.roles);
+      if (destination) {
+        router.push(destination);
       } else {
-        router.push('/admin/dashboard');
+        await useAuthStore.getState().signOut();
+        showError(new Error('Your account does not have dashboard access.'), 'Access denied');
       }
     }
   };

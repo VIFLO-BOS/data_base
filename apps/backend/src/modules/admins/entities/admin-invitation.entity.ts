@@ -17,8 +17,8 @@ export class AdminInvitationEntity {
   @Column({ unique: true })
   email: string;
 
-  @Column({ unique: true })
-  token: string;
+  @Column({ name: 'token_hash', unique: true })
+  tokenHash: string;
 
   @Column({ default: 'admin' })
   role: string;
@@ -29,8 +29,11 @@ export class AdminInvitationEntity {
   @Column({ name: 'expires_at' })
   expiresAt: Date;
 
-  @Column({ default: false })
-  accepted: boolean;
+  @Column({ name: 'accepted_at', type: 'timestamptz', nullable: true })
+  acceptedAt: Date | null;
+
+  @Column({ name: 'revoked_at', type: 'timestamptz', nullable: true })
+  revokedAt: Date | null;
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;

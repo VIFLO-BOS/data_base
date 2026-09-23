@@ -2,7 +2,7 @@
  * Auth Controller
  * TODO: Implement API endpoints for auth management.
  */
-import { Controller, Body, Post, Get, Request } from '@nestjs/common';
+import { Controller, Body, Post, Get, Patch, Request } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
 import { Public } from '@/common/decorators/public.decorator';
@@ -10,6 +10,7 @@ import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { OAuthLoginDto } from './dto/oauth-login.dto';
+import { ChangePasswordDto } from './dto/change-password.dto';
 
 @ApiTags('Auth')
 @Controller('auth')
@@ -56,5 +57,12 @@ export class AuthController {
   @ApiOperation({ summary: 'Get current authenticated user' })
   getMe(@Request() req: any) {
     return this.AuthService.getMe(req.user.id);
+  }
+
+  @Patch('change-password')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Change own password (requires current password)' })
+  changePassword(@Request() req: any, @Body() dto: ChangePasswordDto) {
+    return this.AuthService.changePassword(req.user.id, dto.currentPassword, dto.newPassword);
   }
 }

@@ -6,10 +6,11 @@ import { useRouter } from 'next/navigation';
 import { User, Lock, Loader2, ArrowRight, ShieldCheck } from 'lucide-react';
 import { apiClient } from '@/services/api-client';
 import { useAuthStore } from '@/store/authStore';
+import { setTokens } from '@/services/api-client';
+import type { AuthResponse } from '@/services/auth-service';
 
 export default function InviteAcceptPage({ params }: { params: Promise<{ token: string }> }) {
   const router = useRouter();
-  const { signIn } = useAuthStore();
   const [token, setToken] = useState<string>('');
   
   const [isLoading, setIsLoading] = useState(true);
@@ -36,8 +37,8 @@ export default function InviteAcceptPage({ params }: { params: Promise<{ token: 
       try {
         const { data } = await apiClient.get(`/admins/invite/${token}`);
         setIsValid(true);
-        setEmail(data.email);
-        setRole(data.role);
+        setEmail(data.data.email);
+        setRole(data.data.role);
       } catch (err: any) {
         setIsValid(false);
         setErrorMsg(err?.response?.data?.message || 'Invalid or expired invitation token.');
@@ -58,19 +59,22 @@ export default function InviteAcceptPage({ params }: { params: Promise<{ token: 
 
     setIsSubmitting(true);
     try {
-      await apiClient.post(`/admins/invite/${token}/accept`, {
+      const { data } = await apiClient.post<{ data: AuthResponse }>(`/admins/invite/${token}/accept`, {
         password,
         firstName,
         lastName,
       });
-
-      // Auto-login
-      const { success } = await signIn(email, password);
-      if (success) {
-        router.push('/admin/dashboard');
-      } else {
-        router.push('/login');
-      }
+      const session = data.data;
+      setTokens(session.accessToken, session.refreshToken);
+      localStorage.setItem('auth_user', JSON.stringify(session.user));
+      useAuthStore.setState({
+        user: session.user,
+        isAuthenticated: true,
+        isLoading: false,
+        error: null,
+        networkError: null,
+      });
+      router.replace('/admin/dashboard');
     } catch (err: any) {
       setErrorMsg(err?.response?.data?.message || 'Failed to accept invitation');
       setIsSubmitting(false);

@@ -2,16 +2,29 @@
 
 import React, { useEffect } from "react";
 import { usePathname } from "next/navigation";
-import { X, LayoutDashboard, Briefcase, Users, UserCheck, Clock } from "lucide-react";
+import { X, LayoutDashboard, Briefcase, Users, UserCheck, Clock, FileText, CheckSquare } from "lucide-react";
 import { NavItem } from "./nav-item";
 import { LogoutButton } from "./logout-button";
+import { useAuthStore } from "../../store/authStore";
 
-const navItems = [
+const adminNavItems = [
     { label: "Dashboard", href: "/admin/dashboard", icon: LayoutDashboard },
     { label: "Project", href: "/admin/projects", icon: Briefcase },
     { label: "Accounts", href: "/admin/accounts", icon: Users },
     { label: "Taskers", href: "/admin/taskers", icon: UserCheck },
     { label: "Timesheet", href: "/admin/timesheets", icon: Clock },
+];
+
+const clientNavItems = [
+    { label: "Dashboard", href: "/client/dashboard", icon: LayoutDashboard },
+    { label: "My Projects", href: "/client/projects", icon: Briefcase },
+    { label: "Invoices", href: "/client/invoices", icon: FileText },
+];
+
+const taskerNavItems = [
+    { label: "Dashboard", href: "/tasker/dashboard", icon: LayoutDashboard },
+    { label: "My Tasks", href: "/tasker/tasks", icon: CheckSquare },
+    { label: "My Timesheets", href: "/tasker/timesheets", icon: Clock },
 ];
 
 interface MobileDrawerProps {
@@ -26,6 +39,14 @@ interface MobileDrawerProps {
  */
 export function MobileDrawer({ isOpen, onClose }: MobileDrawerProps) {
     const pathname = usePathname();
+    const user = useAuthStore((state) => state.user);
+    const navItems = user?.roles?.some(role => role === "admin" || role === "super_admin")
+        ? adminNavItems
+        : user?.roles?.includes("client")
+          ? clientNavItems
+          : user?.roles?.includes("tasker")
+            ? taskerNavItems
+            : [];
 
     // Lock body scroll when drawer is open
     useEffect(() => {

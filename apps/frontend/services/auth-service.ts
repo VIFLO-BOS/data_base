@@ -112,4 +112,26 @@ export async function logout() {
   finally { clearTokens(); }
 }
 
+/**
+ * Change own password (requires current password).
+ */
+export async function changePassword(currentPassword: string, newPassword: string): Promise<{ message: string }> {
+  const { data } = await apiClient.patch<{ data: { message: string } }>('/auth/change-password', {
+    currentPassword,
+    newPassword,
+  });
+  return data.data;
+}
+
+/**
+ * Reset another admin's password (super_admin only).
+ */
+export async function resetAdminPassword(email: string, newPassword: string): Promise<{ message: string }> {
+  const { data } = await apiClient.patch<{ data: { message: string } }>('/admins/reset-password', {
+    email,
+    newPassword,
+  });
+  return data.data;
+}
+
 export { getErrorMessage };

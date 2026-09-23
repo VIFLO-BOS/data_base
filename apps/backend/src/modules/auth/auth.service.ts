@@ -1,6 +1,6 @@
 import { Injectable, UnauthorizedException, ConflictException, BadRequestException, ServiceUnavailableException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { EntityManager, Repository } from 'typeorm';
+import { EntityManager, IsNull, MoreThan, Repository } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
 import * as jwt from 'jsonwebtoken';
 import { createHash, randomUUID } from 'crypto';
@@ -13,6 +13,9 @@ import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { OAuthLoginDto } from './dto/oauth-login.dto';
 import { hashPassword, comparePassword } from '../../common/utils/password.utils';
+import { ClientEntity } from '../clients/entities/client.entity';
+import { TaskerEntity } from '../taskers/entities/tasker.entity';
+import { AdminInvitationEntity } from '../admins/entities/admin-invitation.entity';
 
 @Injectable()
 export class AuthService {
@@ -29,12 +32,14 @@ export class AuthService {
     const email = dto.email.trim().toLowerCase();
     const passwordHash = await hashPassword(dto.password);
     return this.userRepo.manager.transaction(async manager => {
+      await this.assertNoPendingAdminInvitation(manager, email);
       if (await manager.findOneBy(UserEntity, { email })) throw new ConflictException('Email already registered');
       const role = await this.requireRole(manager, dto.role);
       const user = await manager.save(UserEntity, manager.create(UserEntity, { email, passwordHash, roles: [role] }));
       user.profile = await manager.save(ProfileEntity, manager.create(ProfileEntity, {
         userId: user.id, firstName: dto.firstName, lastName: dto.lastName,
       }));
+      await this.provisionRoleRecord(manager, user, dto.role, dto.firstName, dto.lastName);
       return { user: this.sanitizeUser(user), ...await this.generateTokens(user, manager) };
     });
   }
@@ -71,6 +76,7 @@ export class AuthService {
       await manager.query('SELECT pg_advisory_xact_lock(hashtext($1))', [identity.id]);
       let user = await manager.findOne(UserEntity, { where: { supabaseUserId: identity.id } });
       if (!user) {
+        await this.assertNoPendingAdminInvitation(manager, email);
         // Existing password accounts need a separate authenticated linking flow.
         if (await manager.findOneBy(UserEntity, { email })) {
           throw new ConflictException('An account with this email exists. Sign in with your password.');
@@ -86,6 +92,15 @@ export class AuthService {
         user.profile = await manager.save(ProfileEntity, manager.create(ProfileEntity, {
           userId: user.id, firstName: name[0] || 'User', lastName: name.slice(1).join(' ') || name[0] || 'User',
         }));
+        await this.provisionRoleRecord(
+          manager,
+          user,
+          dto.role,
+          user.profile.firstName,
+          user.profile.lastName,
+        );
+      } else if (user.roles.some(role => role.name === 'admin' || role.name === 'super_admin')) {
+        throw new UnauthorizedException('Administrator accounts must sign in with their password');
       }
       this.assertActive(user);
       return { user: this.sanitizeUser(user), ...await this.generateTokens(user, manager) };
@@ -116,6 +131,26 @@ export class AuthService {
     const user = await this.userRepo.findOne({ where: { id: userId } });
     this.assertActive(user);
     return this.sanitizeUser(user);
+  }
+
+  async createAuthenticatedSession(user: UserEntity, manager: EntityManager) {
+    this.assertActive(user);
+    return { user: this.sanitizeUser(user), ...await this.generateTokens(user, manager) };
+  }
+
+  async changePassword(userId: string, currentPassword: string, newPassword: string) {
+    const user = await this.userRepo.findOne({
+      where: { id: userId },
+      select: { id: true, email: true, passwordHash: true, status: true, createdAt: true, updatedAt: true },
+    });
+    if (!user) throw new UnauthorizedException('User not found');
+    this.assertActive(user);
+    if (!user.passwordHash || !await comparePassword(currentPassword, user.passwordHash)) {
+      throw new UnauthorizedException('Current password is incorrect');
+    }
+    user.passwordHash = await hashPassword(newPassword);
+    await this.userRepo.save(user);
+    return { message: 'Password changed successfully' };
   }
 
   private verifyRefresh(token: string): jwt.JwtPayload & { sub: string; jti: string } {
@@ -156,6 +191,44 @@ export class AuthService {
     const role = await manager.findOneBy(RoleEntity, { name });
     if (!role) throw new ServiceUnavailableException('Account roles have not been provisioned');
     return role;
+  }
+
+  private async assertNoPendingAdminInvitation(manager: EntityManager, email: string) {
+    const invitation = await manager.findOne(AdminInvitationEntity, {
+      where: {
+        email,
+        acceptedAt: IsNull(),
+        revokedAt: IsNull(),
+        expiresAt: MoreThan(new Date()),
+      },
+      loadEagerRelations: false,
+    });
+    if (invitation) {
+      throw new ConflictException(
+        'This email has a pending administrator invitation. Use the invitation link to create your account.',
+      );
+    }
+  }
+
+  private async provisionRoleRecord(
+    manager: EntityManager,
+    user: UserEntity,
+    role: string,
+    firstName: string,
+    lastName: string,
+  ) {
+    if (role === 'client') {
+      await manager.save(ClientEntity, manager.create(ClientEntity, { userId: user.id }));
+      return;
+    }
+    if (role === 'tasker') {
+      await manager.save(TaskerEntity, manager.create(TaskerEntity, {
+        userId: user.id,
+        firstName,
+        lastName,
+        email: user.email,
+      }));
+    }
   }
   private sanitizeUser(user: UserEntity) {
     return {

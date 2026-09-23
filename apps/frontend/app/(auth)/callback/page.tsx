@@ -6,6 +6,7 @@ import { Loader2 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { showError } from '@/lib/toast';
 import { useAuthStore } from '@/store/authStore';
+import { getDashboardPath } from '@/lib/auth';
 
 export default function AuthCallbackPage() {
   const router = useRouter();
@@ -39,16 +40,13 @@ export default function AuthCallbackPage() {
           localStorage.removeItem('oauth_role');
         }
 
-        // Navigate to correct dashboard
         const currentUser = useAuthStore.getState().user;
-        const primaryRole = currentUser?.roles?.[0] || 'admin';
-        if (primaryRole === 'client') {
-          router.push('/client/dashboard');
-        } else if (primaryRole === 'tasker') {
-          router.push('/tasker/dashboard');
-        } else {
-          router.push('/admin/dashboard');
+        const destination = getDashboardPath(currentUser?.roles);
+        if (!destination || destination.startsWith('/admin/')) {
+          await useAuthStore.getState().signOut();
+          throw new Error('Administrator accounts must sign in with their password.');
         }
+        router.push(destination);
       } catch (err) {
         showError(err, 'An error occurred during authentication');
         setError(err instanceof Error ? err.message : 'An error occurred during authentication.');

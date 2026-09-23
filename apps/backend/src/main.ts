@@ -77,6 +77,7 @@ async function bootstrap() {
   app.setGlobalPrefix('api/v1');
 
   const port = config.get<number>('app.port') || 3001;
+  app.enableShutdownHooks();
   await app.listen(port);
   console.log(`API running at http://localhost:${port}`);
   console.log(`Swagger docs at http://localhost:${port}/api/docs`);

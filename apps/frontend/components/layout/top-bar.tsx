@@ -28,6 +28,14 @@ export function TopBar({
   const dropdownRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
   const user = useAuthStore((s) => s.user);
+  const isAdmin = user?.roles?.some(role => role === 'admin' || role === 'super_admin') ?? false;
+  const profileHref = isAdmin
+    ? '/admin/profile'
+    : user?.roles?.includes('client')
+      ? '/client/profile'
+      : user?.roles?.includes('tasker')
+        ? '/tasker/profile'
+        : null;
 
   const fullName = user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() : '';
   const emailPrefix = user?.email ? user.email.split('@')[0] : 'Admin';
@@ -67,7 +75,7 @@ export function TopBar({
       {/* Mobile: Hamburger | Desktop: User profile */}
       <div className="flex items-center gap-2">
         {/* Notification bell (desktop) */}
-        <NotificationDropdown />
+        {/* <NotificationDropdown /> */}
 
         {/* Mobile hamburger */}
         <button
@@ -130,10 +138,10 @@ export function TopBar({
               className="absolute right-0 top-full mt-2 w-56 bg-white rounded-xl shadow-xl ring-1 ring-zinc-200/60 py-1.5 z-50"
               style={{ animation: 'dropdownIn 0.2s ease-out' }}
             >
-              <button
+              {profileHref && <button
                 onClick={() => {
                   setProfileOpen(false);
-                  router.push('/admin/profile');
+                  router.push(profileHref);
                 }}
                 className="w-full px-4 py-2.5 flex items-center gap-3 hover:bg-zinc-50 transition-colors text-left group"
               >
@@ -141,8 +149,8 @@ export function TopBar({
                 <span className="text-stone-700 text-sm font-medium group-hover:text-stone-900">
                   Profile
                 </span>
-              </button>
-              <button
+              </button>}
+              {isAdmin && <button
                 onClick={() => {
                   setProfileOpen(false);
                   router.push('/admin/settings');
@@ -153,7 +161,7 @@ export function TopBar({
                 <span className="text-stone-700 text-sm font-medium group-hover:text-stone-900">
                   Settings
                 </span>
-              </button>
+              </button>}
               <div className="mx-3 my-1.5 h-px bg-zinc-100" />
               <button
                 onClick={() => {

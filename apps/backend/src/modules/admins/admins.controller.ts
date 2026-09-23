@@ -1,6 +1,7 @@
 import { InviteAdminDto } from './dto/invite-admin.dto';
 import { AcceptInvitationDto } from './dto/accept-invitation.dto';
-import { Controller, Post, Get, Body, Param, Request } from '@nestjs/common';
+import { ResetAdminPasswordDto } from './dto/reset-admin-password.dto';
+import { Controller, Post, Get, Body, Param, Patch, Request } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { AdminsService } from './admins.service';
 import { Roles } from '../../common/decorators/roles.decorator';
@@ -19,7 +20,7 @@ export class AdminsController {
     @Body() dto: InviteAdminDto,
     @Request() req: any,
   ) {
-    return this.adminsService.inviteAdmin(dto.email, dto.role, req.user.id);
+    return this.adminsService.inviteAdmin(dto.email, req.user.id);
   }
 
   @Public()
@@ -38,9 +39,17 @@ export class AdminsController {
 
   @Get('invitations/pending')
   @ApiBearerAuth()
-  @Roles('super_admin', 'admin')
+  @Roles('super_admin')
   @ApiOperation({ summary: 'Get all pending admin invitations' })
   getPendingInvitations() {
     return this.adminsService.getPendingInvitations();
+  }
+
+  @Patch('reset-password')
+  @ApiBearerAuth()
+  @Roles('super_admin')
+  @ApiOperation({ summary: 'Reset an admin\'s password (super admin only)' })
+  resetAdminPassword(@Request() req: any, @Body() dto: ResetAdminPasswordDto) {
+    return this.adminsService.resetAdminPassword(req.user.id, dto.email, dto.newPassword);
   }
 }

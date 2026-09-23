@@ -3,7 +3,7 @@ import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import * as request from 'supertest';
 import * as jwt from 'jsonwebtoken';
-import { randomUUID } from 'crypto';
+import { createHash, randomUUID } from 'crypto';
 import { AppModule } from '../src/app.module';
 import { AuthService } from '../src/modules/auth/auth.service';
 import { AdminsService } from '../src/modules/admins/admins.service';
@@ -14,8 +14,12 @@ import { AdminInvitationEntity } from '../src/modules/admins/entities/admin-invi
 import { seedRoles } from '../src/database/seeds/roles.seed';
 import { seedAdmin } from '../src/database/seeds/admin.seed';
 import { AppDataSource } from '../src/database/data-source';
+import { ClientEntity } from '../src/modules/clients/entities/client.entity';
+import { TaskerEntity } from '../src/modules/taskers/entities/tasker.entity';
+import { SessionEntity } from '../src/modules/auth/entities/session.entity';
 
 const mockGetUser = jest.fn();
+const mockSendAdminInvitation = jest.fn();
 jest.mock('@supabase/supabase-js', () => ({ createClient: () => ({ auth: { getUser: mockGetUser } }) }));
 
 describe('deployment security against PostgreSQL', () => {
@@ -29,7 +33,7 @@ describe('deployment security against PostgreSQL', () => {
     await AppDataSource.runMigrations();
     await AppDataSource.destroy();
     const module = await Test.createTestingModule({ imports: [AppModule] })
-      .overrideProvider(MailService).useValue({ sendAdminInvitation: jest.fn() }).compile();
+      .overrideProvider(MailService).useValue({ sendAdminInvitation: mockSendAdminInvitation }).compile();
     app = module.createNestApplication();
     app.setGlobalPrefix('api/v1');
     app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true, forbidNonWhitelisted: true }));
@@ -38,7 +42,11 @@ describe('deployment security against PostgreSQL', () => {
     auth = app.get(AuthService);
     await db.transaction(seedRoles);
   });
-  beforeEach(async () => { await db.query('DELETE FROM auth_rate_limits'); mockGetUser.mockReset(); });
+  beforeEach(async () => {
+    await db.query('DELETE FROM auth_rate_limits');
+    mockGetUser.mockReset();
+    mockSendAdminInvitation.mockClear();
+  });
   afterAll(async () => { if (app) await app.close(); });
 
   it('provisions roles and an initial admin idempotently without elevating existing accounts', async () => {
@@ -62,10 +70,25 @@ describe('deployment security against PostgreSQL', () => {
     await expect(auth.refresh(rotated.refreshToken)).rejects.toMatchObject({ status: 401 });
   });
 
+  it('provisions the role-specific record for password registrations', async () => {
+    const client = await register('client');
+    const tasker = await register('tasker');
+    expect(await db.getRepository(ClientEntity).findOneBy({ userId: client.user.id })).not.toBeNull();
+    expect(await db.getRepository(TaskerEntity).findOneBy({ userId: tasker.user.id })).toMatchObject({
+      email: tasker.user.email,
+      firstName: 'Test',
+      lastName: 'User',
+    });
+  });
+
   it('rejects expired, revoked, and inactive sessions', async () => {
     const account = await register();
     const payload = jwt.decode(account.refreshToken) as jwt.JwtPayload;
-    await db.query('UPDATE sessions SET expires_at = now() - interval \'1 second\' WHERE id = $1', [payload.jti]);
+    const expired = await db.getRepository(SessionEntity).update(
+      { id: payload.jti, userId: account.user.id },
+      { expiresAt: new Date(Date.now() - 1000) },
+    );
+    expect(expired.affected).toBe(1);
     await expect(auth.refresh(account.refreshToken)).rejects.toMatchObject({ status: 401 });
     const active = await register();
     await db.manager.update(UserEntity, active.user.id, { status: 'suspended' });
@@ -99,6 +122,7 @@ describe('deployment security against PostgreSQL', () => {
     const second = await auth.oauthLogin({ accessToken: 'valid-provider-token', role: 'tasker' });
     expect(second.user.id).toBe(first.user.id);
     expect(second.user.roles).toEqual(['client']);
+    expect(await db.getRepository(ClientEntity).findOneBy({ userId: first.user.id })).not.toBeNull();
     const passwordUser = await register();
     mockGetUser.mockResolvedValue({ data: { user: { ...identity, id: randomUUID(), email: passwordUser.user.email } }, error: null });
     await expect(auth.oauthLogin({ accessToken: 'valid-provider-token', role: 'client' })).rejects.toMatchObject({ status: 409 });
@@ -107,20 +131,49 @@ describe('deployment security against PostgreSQL', () => {
   it('validates invitations, projects safe responses, and consumes invitations exactly once', async () => {
     const inviter = await auth.login({ email: 'bootstrap@example.com', password });
     const email = randomUUID() + '@example.com';
-    await request(app.getHttpServer()).post('/api/v1/admins/invite').auth(inviter.accessToken, { type: 'bearer' }).send({ email: 'invalid', role: 'super_admin' }).expect(400);
-    await request(app.getHttpServer()).post('/api/v1/admins/invite').auth(inviter.accessToken, { type: 'bearer' }).send({ email, role: 'admin' }).expect(201);
+    await request(app.getHttpServer()).post('/api/v1/admins/invite').auth(inviter.accessToken, { type: 'bearer' }).send({ email: 'invalid' }).expect(400);
+    await request(app.getHttpServer()).post('/api/v1/admins/invite').auth(inviter.accessToken, { type: 'bearer' }).send({ email, role: 'super_admin' }).expect(400);
+    await request(app.getHttpServer()).post('/api/v1/admins/invite').auth(inviter.accessToken, { type: 'bearer' }).send({ email }).expect(201);
+    const token = mockSendAdminInvitation.mock.calls.at(-1)![1] as string;
     const invitation = await db.getRepository(AdminInvitationEntity).findOneByOrFail({ email });
+    expect(invitation.tokenHash).toBe(createHash('sha256').update(token).digest('hex'));
+    expect(invitation.tokenHash).not.toBe(token);
     const pending = await request(app.getHttpServer()).get('/api/v1/admins/invitations/pending').auth(inviter.accessToken, { type: 'bearer' }).expect(200);
-    expect(JSON.stringify(pending.body)).not.toMatch(/passwordHash|password_hash|"token"/);
-    expect(JSON.stringify(pending.body)).not.toContain(invitation.token);
-    await request(app.getHttpServer()).post('/api/v1/admins/invite/' + invitation.token + '/accept').send({ firstName: ' ', lastName: 'Test', password: 'weak' }).expect(400);
+    expect(JSON.stringify(pending.body)).not.toMatch(/passwordHash|password_hash|tokenHash|token_hash/);
+    expect(JSON.stringify(pending.body)).not.toContain(token);
+    await request(app.getHttpServer()).get('/api/v1/admins/invite/' + token).expect(200);
+    await request(app.getHttpServer()).post('/api/v1/admins/invite/' + token + '/accept').send({ firstName: ' ', lastName: 'Test', password: 'weak' }).expect(400);
     const service = app.get(AdminsService);
-    const results = await Promise.allSettled([service.acceptInvitation(invitation.token, { firstName: 'New', lastName: 'Admin', password }), service.acceptInvitation(invitation.token, { firstName: 'New', lastName: 'Admin', password })]);
+    const results = await Promise.allSettled([service.acceptInvitation(token, { firstName: 'New', lastName: 'Admin', password }), service.acceptInvitation(token, { firstName: 'New', lastName: 'Admin', password })]);
     expect(results.filter(result => result.status === 'fulfilled')).toHaveLength(1);
+    const createdSession = (results.find(result => result.status === 'fulfilled') as PromiseFulfilledResult<{ user: { roles: string[] }; accessToken: string; refreshToken: string }>).value;
+    expect(createdSession.user.roles).toEqual(['admin']);
+    expect(createdSession.accessToken).toEqual(expect.any(String));
+    expect(createdSession.refreshToken).toEqual(expect.any(String));
     const accepted = await auth.login({ email, password });
     expect(accepted.user.roles).toEqual(['admin']);
+    await request(app.getHttpServer()).post('/api/v1/admins/invite').auth(createdSession.accessToken, { type: 'bearer' }).send({ email: randomUUID() + '@example.com' }).expect(403);
+    await request(app.getHttpServer()).get('/api/v1/admins/invitations/pending').auth(createdSession.accessToken, { type: 'bearer' }).expect(403);
+    await request(app.getHttpServer()).post('/api/v1/admins/invite').send({ email: randomUUID() + '@example.com' }).expect(401);
     const plain = await db.getRepository(UserEntity).findOneByOrFail({ email });
     expect(plain.passwordHash).toBeUndefined();
+  });
+
+  it('blocks public password and OAuth registration for pending admin invitations', async () => {
+    const inviter = await auth.login({ email: 'bootstrap@example.com', password });
+    const passwordEmail = randomUUID() + '@example.com';
+    await request(app.getHttpServer()).post('/api/v1/admins/invite').auth(inviter.accessToken, { type: 'bearer' }).send({ email: passwordEmail }).expect(201);
+    await expect(auth.register({ email: passwordEmail, password, firstName: 'Pending', lastName: 'Admin', role: 'client' })).rejects.toMatchObject({ status: 409 });
+
+    const oauthEmail = randomUUID() + '@example.com';
+    await request(app.getHttpServer()).post('/api/v1/admins/invite').auth(inviter.accessToken, { type: 'bearer' }).send({ email: oauthEmail }).expect(201);
+    mockGetUser.mockResolvedValue({ data: { user: {
+      id: randomUUID(),
+      email: oauthEmail,
+      email_confirmed_at: new Date().toISOString(),
+      user_metadata: { full_name: 'Pending Admin' },
+    } }, error: null });
+    await expect(auth.oauthLogin({ accessToken: 'valid-provider-token', role: 'client' })).rejects.toMatchObject({ status: 409 });
   });
 
   it('rolls back registration if its required role is missing', async () => {
