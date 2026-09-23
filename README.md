@@ -708,3 +708,5 @@ This project is **private and proprietary**. All rights reserved.
 
 
 Deployment configuration, security changes, and release verification are tracked in [VERCEL_DEPLOYMENT_CHECKLIST.md](VERCEL_DEPLOYMENT_CHECKLIST.md). Database release and bootstrap instructions are in [database/migrations/README.md](database/migrations/README.md). Both apps target Node 24. Password recovery, registration avatars, generated reports, and exports are unavailable for this release.
+   
+ 
